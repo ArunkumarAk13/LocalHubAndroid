@@ -1,9 +1,18 @@
 import axios from 'axios';
 
-// Create an axios instance
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhub-backend-so0i.onrender.com/api';
+// Get API URL from environment variable
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-console.log('API Base URL:', API_BASE_URL); // Debug log
+// Debug environment variables
+console.log('Environment Variables:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  MODE: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+  PROD: import.meta.env.PROD,
+  BASE_URL: import.meta.env.BASE_URL
+});
+
+console.log('Using API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -21,7 +30,9 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('Making request to:', config.baseURL + config.url);
+    // Log the full URL being requested
+    const fullUrl = `${config.baseURL}${config.url}`;
+    console.log('Making request to:', fullUrl);
     return config;
   },
   (error) => {
@@ -38,6 +49,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.code === 'ERR_NETWORK') {
       console.error('Network Error - Unable to connect to the server. Please check your internet connection and try again.');
+      console.error('Failed URL:', error.config?.baseURL + error.config?.url);
     } else if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('subscribedCategories');
