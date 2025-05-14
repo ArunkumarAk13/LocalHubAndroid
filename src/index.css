@@ -1,0 +1,117 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 180 44% 98%;
+    --foreground: 180 10% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 180 10% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 180 10% 15%;
+
+    --primary: 180 100% 34%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 180 60% 96%;
+    --secondary-foreground: 180 10% 15%;
+
+    --muted: 180 20% 92%;
+    --muted-foreground: 180 5% 45%;
+
+    --accent: 24 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 20% 88%;
+    --input: 180 20% 88%;
+    --ring: 180 100% 34%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 180 10% 10%;
+    --foreground: 180 5% 90%;
+
+    --card: 180 10% 15%;
+    --card-foreground: 180 5% 90%;
+
+    --popover: 180 10% 15%;
+    --popover-foreground: 180 5% 90%;
+
+    --primary: 180 100% 34%;
+    --primary-foreground: 180 5% 98%;
+
+    --secondary: 180 10% 20%;
+    --secondary-foreground: 180 5% 90%;
+
+    --muted: 180 10% 20%;
+    --muted-foreground: 180 5% 65%;
+
+    --accent: 24 100% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 40.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 10% 25%;
+    --input: 180 10% 25%;
+    --ring: 180 100% 34%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .need-card {
+    @apply bg-card rounded-xl shadow-card transition-shadow hover:shadow-card-hover border border-border;
+  }
+
+  .need-card-image {
+    @apply rounded-t-xl w-full h-48 object-cover;
+  }
+  
+  .nav-icon {
+    @apply relative flex items-center justify-center h-12 w-12 mt-2 mb-2 mx-auto text-brand-500 hover:text-accent1-500 transition-colors duration-200;
+  }
+
+  .badge {
+    @apply absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center bg-accent text-white text-xs font-bold rounded-full;
+  }
+
+  .category-pill {
+    @apply px-3 py-1 rounded-full text-sm font-medium bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-colors;
+  }
+  
+  .btn-primary {
+    @apply bg-brand-500 text-white py-2 px-4 rounded-lg hover:bg-brand-600 transition-colors;
+  }
+  
+  .btn-accent {
+    @apply bg-accent1-500 text-white py-2 px-4 rounded-lg hover:opacity-90 transition-opacity;
+  }
+
+  .rating-stars {
+    @apply flex text-accent1-500;
+  }
+  
+  .input-field {
+    @apply w-full rounded-lg border border-input px-4 py-2 text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-ring;
+  }
+}
