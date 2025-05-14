@@ -152,6 +152,24 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/health', healthRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to LocalHub API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      posts: '/api/posts',
+      categories: '/api/categories',
+      ratings: '/api/ratings',
+      chats: '/api/chats',
+      health: '/api/health'
+    }
+  });
+});
+
 // Test endpoint
 app.get('/api/test-db', async (req, res) => {
   try {
