@@ -25,11 +25,11 @@ const config = {
     apiUrl: process.env.API_URL || 'https://your-backend-url.onrender.com',
     frontendUrl: process.env.FRONTEND_URL || 'https://your-frontend-url.vercel.app',
     database: {
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
+      host: 'dpg-d0iad8p5pdvs73fodo70-a',
+      port: 5432,
+      database: 'localhubdb',
+      user: 'localhub',
+      password: 'pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg',
       ssl: {
         rejectUnauthorized: false
       }
