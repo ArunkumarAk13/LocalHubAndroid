@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
+const { logger } = require('../config/logger');
 
 // Create uploads directory if it doesn't exist
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
@@ -35,23 +36,24 @@ const generateUniqueFilename = (originalname) => {
   return `${timestamp}-${uniqueId}${ext}`;
 };
 
-// Configure storage for avatars
-const avatarStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, avatarDir);
+// Configure storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    let uploadPath = 'uploads/';
+    
+    // Determine upload path based on file type or request
+    if (req.originalUrl.includes('/avatar')) {
+      uploadPath += 'avatar/';
+    } else if (req.originalUrl.includes('/posts')) {
+      uploadPath += 'post-images/';
+    }
+    
+    cb(null, uploadPath);
   },
-  filename: (req, file, cb) => {
-    cb(null, `avatar-${generateUniqueFilename(file.originalname)}`);
-  }
-});
-
-// Configure storage for post images
-const postImagesStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, postImagesDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `post-${generateUniqueFilename(file.originalname)}`);
+  filename: function (req, file, cb) {
+    // Generate unique filename
+    const uniqueFilename = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueFilename);
   }
 });
 
@@ -62,28 +64,18 @@ const uploadLimiter = rateLimit({
   message: 'Too many uploads from this IP, please try again later'
 });
 
-// Configure multer for avatar uploads with error handling
-const avatarUpload = multer({
-  storage: avatarStorage,
-  fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 1 // Only one file at a time
-  }
-}).single('avatar');
-
-// Configure multer for post image uploads with error handling
+// Create multer instance
 const upload = multer({
-  storage: postImagesStorage,
-  fileFilter,
+  storage: storage,
+  fileFilter: fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 5 // Maximum 5 files
   }
-}).array('images', 5);
+});
 
-// Error handling middleware for multer
-const handleMulterError = (err, req, res, next) => {
+// Error handling middleware
+const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
@@ -94,7 +86,7 @@ const handleMulterError = (err, req, res, next) => {
     if (err.code === 'LIMIT_FILE_COUNT') {
       return res.status(400).json({
         success: false,
-        message: 'Too many files uploaded'
+        message: 'Too many files. Maximum is 5 files'
       });
     }
     return res.status(400).json({
@@ -112,8 +104,7 @@ const handleMulterError = (err, req, res, next) => {
 };
 
 module.exports = {
-  avatarUpload,
   upload,
   uploadLimiter,
-  handleMulterError
+  handleUploadError
 };

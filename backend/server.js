@@ -23,8 +23,11 @@ const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
 const userRoutes = require('./routes/users');
 const ratingRoutes = require('./routes/ratings');
-const chatRoutes = require('./routes/chat');
+const chatRoutes = require('./routes/chats');
 const healthRoutes = require('./routes/health');
+
+// Import middleware
+const { upload, handleUploadError } = require('./middleware/upload');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -179,37 +182,27 @@ app.get('/api/debug/uploads', (req, res) => {
 });
 
 // Error handling middleware
+app.use(handleUploadError);
 app.use((err, req, res, next) => {
-  logger.error('Error:', {
-    error: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-    ip: req.ip
-  });
-
-  // Handle specific error types
+  logger.error('Error:', err);
+  
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       success: false,
-      message: 'Validation Error',
-      errors: err.errors
+      message: err.message
     });
   }
-
+  
   if (err.name === 'UnauthorizedError') {
     return res.status(401).json({
       success: false,
-      message: 'Unauthorized'
+      message: 'Invalid token'
     });
   }
-
-  // Default error response
-  res.status(err.status || 500).json({
+  
+  res.status(500).json({
     success: false,
-    message: process.env.NODE_ENV === 'production' 
-      ? 'An unexpected error occurred' 
-      : err.message
+    message: 'Internal server error'
   });
 });
 

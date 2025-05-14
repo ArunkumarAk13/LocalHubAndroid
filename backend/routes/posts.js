@@ -3,6 +3,8 @@ const db = require('../db');
 const auth = require('../middleware/auth');
 const { upload, uploadLimiter, handleMulterError } = require('../middleware/upload');
 const { validatePost } = require('../middleware/validation');
+const { validationResult } = require('express-validator');
+const cloudinary = require('cloudinary');
 
 const router = express.Router();
 
@@ -414,123 +416,71 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 });
 
 // Update a post
-router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
-  const client = await db.query('BEGIN');
-  
+router.put('/:id', auth, upload.array('images', 5), handleUploadError, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { title, description, category, location } = req.body;
-    
+    const postId = req.params.id;
+    const { title, description, category, location, price, contact } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     // Check if post exists and belongs to user
-    const postCheck = await db.query(
+    const post = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
-      [id, req.user.id]
+      [postId, userId]
     );
-    
-    if (postCheck.rows.length === 0) {
+
+    if (post.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Post not found or you do not have permission to edit it'
+        message: 'Post not found or unauthorized'
       });
     }
-    
-    if (!title || !description || !category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title, description, and category are required'
-      });
-    }
-    
-    // Get category ID
-    const categoryResult = await db.query('SELECT id FROM categories WHERE name = $1', [category]);
-    
-    let categoryId;
-    if (categoryResult.rows.length === 0) {
-      // If category doesn't exist, create it
-      const newCategoryResult = await db.query(
-        'INSERT INTO categories (name) VALUES ($1) RETURNING id',
-        [category]
-      );
-      categoryId = newCategoryResult.rows[0].id;
-    } else {
-      categoryId = categoryResult.rows[0].id;
-    }
-    
-    // Update post
-    await db.query(
-      'UPDATE posts SET title = $1, description = $2, category_id = $3, location = $4 WHERE id = $5',
-      [title, description, categoryId, location, id]
-    );
-    
-    // Handle images
-    let existingImages = [];
-    if (req.body.existingImages) {
-      try {
-        existingImages = JSON.parse(req.body.existingImages);
-      } catch (error) {
-        console.error('Error parsing existingImages:', error);
-      }
-    }
-    
-    // Delete images that are not in the existingImages list
-    if (existingImages.length > 0) {
-      await db.query(
-        'DELETE FROM post_images WHERE post_id = $1 AND image_url != ALL($2)',
-        [id, existingImages]
-      );
-    } else {
-      // If no existing images to keep, delete all
-      await db.query('DELETE FROM post_images WHERE post_id = $1', [id]);
-    }
-    
-    // Add new images if provided
+
+    // Handle image uploads
+    let imageUrls = post.rows[0].images || [];
     if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        const imageUrl = file.path;
-        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [id, imageUrl]);
+      // Upload new images to Cloudinary
+      const uploadPromises = req.files.map(file => 
+        cloudinary.uploader.upload(file.path, {
+          folder: 'localhub/posts',
+          resource_type: 'auto'
+        })
+      );
+
+      const uploadResults = await Promise.all(uploadPromises);
+      imageUrls = uploadResults.map(result => result.secure_url);
+
+      // Delete old images from Cloudinary if they exist
+      if (post.rows[0].images) {
+        const deletePromises = post.rows[0].images.map(url => {
+          const publicId = url.split('/').pop().split('.')[0];
+          return cloudinary.uploader.destroy(publicId);
+        });
+        await Promise.all(deletePromises);
       }
     }
-    
-    await db.query('COMMIT');
-    
-    // Get updated post with all details
-    const updatedPost = await db.query(`
-      SELECT 
-        p.id, p.title, p.description, p.location, p.created_at, p.purchased,
-        c.name AS category,
-        json_build_object(
-          'id', u.id,
-          'name', u.name,
-          'avatar', u.avatar,
-          'rating', u.rating,
-          'phone_number', COALESCE(u.phone_number, ''),
-          'settings', json_build_object(
-            'whatsappEnabled', COALESCE(us.whatsapp_enabled, false)
-          )
-        ) AS posted_by,
-        COALESCE(
-          (SELECT json_agg(pi.image_url)
-           FROM post_images pi
-           WHERE pi.post_id = p.id), '[]'
-        ) AS images
-      FROM 
-        posts p
-      JOIN 
-        users u ON p.user_id = u.id
-      JOIN 
-        categories c ON p.category_id = c.id
-      LEFT JOIN
-        user_settings us ON u.id = us.user_id
-      WHERE 
-        p.id = $1
-    `, [id]);
-    
+
+    // Update post
+    const updatedPost = await db.query(
+      `UPDATE posts 
+       SET title = $1, description = $2, category = $3, 
+           location = $4, price = $5, contact = $6, 
+           images = $7, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8 AND user_id = $9
+       RETURNING *`,
+      [title, description, category, location, price, contact, imageUrls, postId, userId]
+    );
+
     res.json({
       success: true,
-      post: updatedPost.rows[0]
+      data: updatedPost.rows[0]
     });
   } catch (error) {
-    await db.query('ROLLBACK');
     next(error);
   }
 });
