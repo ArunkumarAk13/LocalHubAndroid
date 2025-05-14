@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Get API URL from environment variable
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Get API URL from environment variable with fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhub-backend-so0i.onrender.com/api';
 
 // Debug environment variables
 console.log('Environment Variables:', {
@@ -14,25 +14,39 @@ console.log('Environment Variables:', {
 
 console.log('Using API Base URL:', API_BASE_URL);
 
+// Create axios instance with explicit configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true,
-  timeout: 10000 // 10 second timeout
+  timeout: 10000, // 10 second timeout
+  validateStatus: function (status) {
+    return status >= 200 && status < 500; // Accept all status codes less than 500
+  }
 });
 
 // Add a request interceptor to include the token in all authenticated requests
 api.interceptors.request.use(
   (config) => {
+    // Ensure baseURL is set correctly
+    config.baseURL = API_BASE_URL;
+    
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
     // Log the full URL being requested
     const fullUrl = `${config.baseURL}${config.url}`;
     console.log('Making request to:', fullUrl);
+    console.log('Request config:', {
+      method: config.method,
+      headers: config.headers,
+      data: config.data
+    });
+    
     return config;
   },
   (error) => {
@@ -44,12 +58,22 @@ api.interceptors.request.use(
 // Add a response interceptor to handle token expiration
 api.interceptors.response.use(
   (response) => {
+    console.log('Response received:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data
+    });
     return response;
   },
   (error) => {
     if (error.code === 'ERR_NETWORK') {
       console.error('Network Error - Unable to connect to the server. Please check your internet connection and try again.');
       console.error('Failed URL:', error.config?.baseURL + error.config?.url);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        config: error.config
+      });
     } else if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('subscribedCategories');
