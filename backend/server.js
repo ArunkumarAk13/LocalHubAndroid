@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
 require('dotenv').config();
 const { pool } = require('./db/postgres');
 
@@ -11,6 +12,33 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Initialize Database
+async function initializeDatabase() {
+  const client = await pool.connect();
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+
+    // Read and execute the schema file
+    const schemaPath = path.join(__dirname, 'db', 'schema.sql');
+    const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+    
+    console.log('Creating database schema...');
+    await client.query(schemaSQL);
+    
+    // Commit transaction
+    await client.query('COMMIT');
+    console.log('Database initialization completed successfully');
+  } catch (error) {
+    // Rollback transaction on error
+    await client.query('ROLLBACK');
+    console.error('Database initialization failed:', error);
+    // Don't throw error, just log it
+  } finally {
+    client.release();
+  }
+}
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -110,8 +138,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start server with error handling
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  // Initialize database after server starts
+  await initializeDatabase();
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} is already in use. Please try a different port.`);
