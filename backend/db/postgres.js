@@ -1,7 +1,18 @@
 const { Pool } = require('pg');
 
+// Log database configuration (without sensitive info)
+console.log('Database Configuration:');
+console.log('Host:', process.env.DB_HOST);
+console.log('Port:', process.env.DB_PORT);
+console.log('Database:', process.env.DB_NAME);
+console.log('User:', process.env.DB_USER);
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   ssl: {
     rejectUnauthorized: false // Required for Neon
   },
@@ -15,11 +26,14 @@ async function testConnection(retries = 5, delay = 5000) {
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
-      console.log('Successfully connected to PostgreSQL');
+      // Test a simple query
+      const result = await client.query('SELECT NOW()');
+      console.log('Database connection test successful:', result.rows[0]);
       client.release();
       return true;
     } catch (err) {
       console.error(`Database connection attempt ${i + 1} failed:`, err.message);
+      console.error('Full error:', err);
       if (i === retries - 1) {
         console.error('All database connection attempts failed');
         process.exit(1);

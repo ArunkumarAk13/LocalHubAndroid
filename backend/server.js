@@ -88,6 +88,25 @@ app.use('/api/users', userRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/chats', chatRoutes);
 
+// Test endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ 
+      status: 'success', 
+      message: 'Database connection working',
+      timestamp: result.rows[0].now
+    });
+  } catch (err) {
+    console.error('Database test failed:', err);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Database connection failed',
+      error: err.message 
+    });
+  }
+});
+
 // Debug route for uploads directory
 app.get('/api/debug/uploads', (req, res) => {
   const fs = require('fs');
