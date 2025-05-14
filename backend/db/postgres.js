@@ -15,6 +15,10 @@ async function testConnection(retries = 5, delay = 5000) {
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
+      // Grant necessary permissions
+      await client.query('GRANT ALL ON SCHEMA public TO current_user');
+      await client.query('GRANT ALL ON ALL TABLES IN SCHEMA public TO current_user');
+      await client.query('GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO current_user');
       console.log('Successfully connected to PostgreSQL');
       client.release();
       return true;

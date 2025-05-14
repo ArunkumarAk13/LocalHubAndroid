@@ -20,6 +20,11 @@ async function initializeDatabase() {
     // Start transaction
     await client.query('BEGIN');
 
+    // Grant necessary permissions first
+    await client.query('GRANT ALL ON SCHEMA public TO current_user');
+    await client.query('GRANT ALL ON ALL TABLES IN SCHEMA public TO current_user');
+    await client.query('GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO current_user');
+
     // Read and execute the schema file
     const schemaPath = path.join(__dirname, 'db', 'schema.sql');
     const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
