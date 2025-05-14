@@ -6,7 +6,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --debug",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -70,7 +70,9 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.0",
-    "zod": "^3.22.4",
+    "zod": "^3.22.4"
+  },
+  "optionalDependencies": {
     "@capacitor/android": "^5.7.0",
     "@capacitor/core": "^5.7.0",
     "@capacitor/ios": "^5.7.0"
@@ -97,5 +99,8 @@
     "electron-builder": "^24.13.3",
     "concurrently": "^8.2.2",
     "@capacitor/cli": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

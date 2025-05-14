@@ -33,7 +33,25 @@ export default defineConfig(({ mode }) => {
       assetsDir: 'assets',
       sourcemap: true,
       chunkSizeWarningLimit: 1000,
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true
+        }
+      },
       rollupOptions: {
+        external: [
+          '@capacitor/core',
+          '@capacitor/android',
+          '@capacitor/ios'
+        ],
+        onwarn(warning, warn) {
+          // Ignore certain warnings
+          if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+          if (warning.code === 'CIRCULAR_DEPENDENCY') return;
+          warn(warning);
+        },
         output: {
           manualChunks: {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
@@ -70,8 +88,7 @@ export default defineConfig(({ mode }) => {
             'date-utils': ['date-fns', 'react-day-picker'],
             'ui-utils': ['class-variance-authority', 'clsx', 'tailwind-merge', 'tailwindcss-animate'],
             'data-fetching': ['axios', '@tanstack/react-query'],
-            'charts': ['recharts'],
-            'capacitor': ['@capacitor/core', '@capacitor/android', '@capacitor/ios']
+            'charts': ['recharts']
           },
           format: 'es',
           entryFileNames: 'assets/[name].[hash].js',
@@ -93,5 +110,15 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env': env
     },
+    optimizeDeps: {
+      exclude: ['@capacitor/core', '@capacitor/android', '@capacitor/ios'],
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        '@tanstack/react-query',
+        'axios'
+      ]
+    }
   };
 });
