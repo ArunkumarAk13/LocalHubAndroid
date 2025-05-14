@@ -1,7 +1,16 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
+const { pool } = require('./db/postgres');
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -18,8 +27,9 @@ const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:5173',
   'https://local-hub-app.vercel.app',
-  'https://local-hub-e32q4zkyh-arunkumar132004-gmailcoms-projects.vercel.app',
-  'https://your-backend.onrender.com' // Add your actual Render backend URL here
+  'capacitor://localhost',
+  'http://localhost',
+  'https://localhubandroid.onrender.com'
 ];
 
 app.use(cors({
