@@ -115,7 +115,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      // Handle specific error cases
+      if (error.code === 'ECONNABORTED') {
+        toast.error('Registration request timed out. Please try again.');
+      } else if (error.code === 'ERR_NETWORK') {
+        toast.error('Unable to connect to the server. Please check your internet connection.');
+      } else {
+        toast.error(error.response?.data?.message || error.message || 'Registration failed');
+      }
       console.error('Registration error:', error);
       return false;
     }

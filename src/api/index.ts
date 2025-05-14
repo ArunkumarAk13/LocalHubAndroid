@@ -21,7 +21,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
-  timeout: 10000, // 10 second timeout
+  timeout: 30000, // Increased to 30 seconds
   validateStatus: function (status) {
     return status >= 200 && status < 500; // Accept all status codes less than 500
   }
@@ -55,7 +55,7 @@ api.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle token expiration
+// Add a response interceptor to handle token expiration and network errors
 api.interceptors.response.use(
   (response) => {
     console.log('Response received:', {
@@ -74,6 +74,13 @@ api.interceptors.response.use(
         code: error.code,
         config: error.config
       });
+      // Show a more user-friendly error message
+      error.message = 'Unable to connect to the server. Please check your internet connection and try again.';
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('Request Timeout - The server took too long to respond.');
+      console.error('Failed URL:', error.config?.baseURL + error.config?.url);
+      // Show a more user-friendly error message
+      error.message = 'The server took too long to respond. Please try again.';
     } else if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('subscribedCategories');
@@ -96,16 +103,37 @@ api.interceptors.response.use(
 // Authentication API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
-    return response.data;
+    try {
+      const response = await api.post('/auth/login', { email, password });
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Login request timed out. Please try again.');
+      }
+      throw error;
+    }
   },
   register: async (name: string, email: string, password: string, phoneNumber: string) => {
-    const response = await api.post('/auth/register', { name, email, password, phoneNumber });
-    return response.data;
+    try {
+      const response = await api.post('/auth/register', { name, email, password, phoneNumber });
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Registration request timed out. Please try again.');
+      }
+      throw error;
+    }
   },
   getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
-    return response.data;
+    try {
+      const response = await api.get('/auth/me');
+      return response.data;
+    } catch (error: any) {
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Failed to fetch user data. Please try again.');
+      }
+      throw error;
+    }
   },
 };
 

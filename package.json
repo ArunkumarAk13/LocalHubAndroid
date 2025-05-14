@@ -11,7 +11,15 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder",
+    "mobile:init": "npm install @capacitor/core @capacitor/cli && npx cap init",
+    "mobile:add:android": "npm install @capacitor/android && npx cap add android",
+    "mobile:add:ios": "npm install @capacitor/ios && npx cap add ios",
+    "mobile:sync": "npx cap sync",
+    "mobile:open:android": "npx cap open android",
+    "mobile:open:ios": "npx cap open ios",
+    "mobile:build:android": "npm run build && npx cap sync && npx cap open android",
+    "mobile:build:ios": "npm run build && npx cap sync && npx cap open ios"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -90,5 +98,11 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "mobileDependencies": {
+    "@capacitor/android": "^5.7.0",
+    "@capacitor/core": "^5.7.0",
+    "@capacitor/ios": "^5.7.0",
+    "@capacitor/cli": "^5.7.0"
   }
 }
