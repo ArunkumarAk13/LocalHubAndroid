@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
-const { upload, uploadLimiter, handleMulterError } = require('../middleware/upload');
+const { upload, uploadLimiter, handleUploadError } = require('../middleware/upload');
 const { validatePost } = require('../middleware/validation');
 const { validationResult } = require('express-validator');
 const cloudinary = require('cloudinary');

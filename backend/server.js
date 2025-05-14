@@ -10,6 +10,7 @@ const { queueMiddleware } = require('./middleware/queue');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const { initDatabase } = require('./db/init-db');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -230,8 +231,15 @@ process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
 // Start server
-const server = app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+const server = app.listen(PORT, async () => {
+  try {
+    // Initialize database
+    await initDatabase();
+    logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
 }).on('error', (err) => {
   logger.error('Server error:', err);
   process.exit(1);
