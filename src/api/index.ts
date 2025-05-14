@@ -3,12 +3,15 @@ import axios from 'axios';
 // Create an axios instance
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhub-backend-so0i.onrender.com/api';
 
+console.log('API Base URL:', API_BASE_URL); // Debug log
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
+  withCredentials: true,
+  timeout: 10000 // 10 second timeout
 });
 
 // Add a request interceptor to include the token in all authenticated requests
@@ -16,13 +19,9 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Ensure the Authorization header is properly set
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('Making request to:', config.baseURL + config.url);
-      console.log('With headers:', config.headers);
-    } else {
-      console.warn('No token found in localStorage for request to:', config.baseURL + config.url);
     }
+    console.log('Making request to:', config.baseURL + config.url);
     return config;
   },
   (error) => {
@@ -34,10 +33,18 @@ api.interceptors.request.use(
 // Add a response interceptor to handle token expiration
 api.interceptors.response.use(
   (response) => {
-    console.log('Response received:', response.config.baseURL + response.config.url, response.status);
     return response;
   },
   (error) => {
+    if (error.code === 'ERR_NETWORK') {
+      console.error('Network Error - Unable to connect to the server. Please check your internet connection and try again.');
+    } else if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('subscribedCategories');
+      localStorage.removeItem('userNotifications');
+      window.location.href = '/login';
+    }
+    
     console.error('API Error:', {
       url: error.config?.baseURL + error.config?.url,
       status: error.response?.status,
@@ -46,13 +53,6 @@ api.interceptors.response.use(
       token: error.config?.headers?.Authorization ? 'Present' : 'Missing'
     });
     
-    if (error.response?.status === 401) {
-      console.log('Authentication error, clearing token and redirecting to login');
-      localStorage.removeItem('token');
-      localStorage.removeItem('subscribedCategories');
-      localStorage.removeItem('userNotifications');
-      window.location.href = '/login';
-    }
     return Promise.reject(error);
   }
 );
