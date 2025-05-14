@@ -5,7 +5,7 @@ public class ApiConfig {
     private static final String DEV_API_URL = "http://10.0.2.2:5000"; // Android emulator localhost
     
     // Production API URL
-    private static final String PROD_API_URL = "https://your-backend-url.onrender.com";
+    private static final String PROD_API_URL = "https://localhub-backend.onrender.com";
     
     // Current API URL based on build type
     public static final String API_URL = BuildConfig.DEBUG ? DEV_API_URL : PROD_API_URL;

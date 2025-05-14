@@ -22,14 +22,14 @@ const config = {
     }
   },
   production: {
-    apiUrl: process.env.API_URL || 'https://your-backend-url.onrender.com',
-    frontendUrl: process.env.FRONTEND_URL || 'https://your-frontend-url.vercel.app',
+    apiUrl: process.env.API_URL || 'https://localhub-backend.onrender.com',
+    frontendUrl: process.env.FRONTEND_URL || 'https://localhub-web.vercel.app',
     database: {
-      host: 'dpg-d0iad8p5pdvs73fodo70-a',
-      port: 5432,
-      database: 'localhubdb',
-      user: 'localhub',
-      password: 'pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg',
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
       ssl: {
         rejectUnauthorized: false
       }
