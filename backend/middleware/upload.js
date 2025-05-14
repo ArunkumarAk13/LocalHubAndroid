@@ -1,85 +1,119 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
+const { v4: uuidv4 } = require('uuid');
 
 // Create uploads directory if it doesn't exist
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
 const avatarDir = path.join(uploadDir, 'avatar');
 const postImagesDir = path.join(uploadDir, 'post-images');
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-  console.log(`Created upload directory: ${uploadDir}`);
-}
+// Ensure directories exist
+[uploadDir, avatarDir, postImagesDir].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`Created directory: ${dir}`);
+  }
+});
 
-if (!fs.existsSync(avatarDir)) {
-  fs.mkdirSync(avatarDir, { recursive: true });
-  console.log(`Created avatar directory: ${avatarDir}`);
-}
+// File type validation
+const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const fileFilter = (req, file, cb) => {
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type. Allowed types: ${allowedMimeTypes.join(', ')}`), false);
+  }
+};
 
-if (!fs.existsSync(postImagesDir)) {
-  fs.mkdirSync(postImagesDir, { recursive: true });
-  console.log(`Created post-images directory: ${postImagesDir}`);
-}
+// Generate unique filename
+const generateUniqueFilename = (originalname) => {
+  const timestamp = Date.now();
+  const uniqueId = uuidv4();
+  const ext = path.extname(originalname);
+  return `${timestamp}-${uniqueId}${ext}`;
+};
 
 // Configure storage for avatars
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    console.log(`Storing avatar in: ${avatarDir}`);
     cb(null, avatarDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const filename = `avatar-${uniqueSuffix}${path.extname(file.originalname)}`;
-    console.log(`Generated avatar filename: ${filename}`);
-    cb(null, filename);
-  },
+    cb(null, `avatar-${generateUniqueFilename(file.originalname)}`);
+  }
 });
 
 // Configure storage for post images
 const postImagesStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    console.log(`Storing post image in: ${postImagesDir}`);
     cb(null, postImagesDir);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const filename = `post-${uniqueSuffix}${path.extname(file.originalname)}`;
-    console.log(`Generated post image filename: ${filename}`);
-    cb(null, filename);
-  },
+    cb(null, `post-${generateUniqueFilename(file.originalname)}`);
+  }
 });
 
-// File filter for images
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    console.log(`Accepted file of type: ${file.mimetype}`);
-    cb(null, true);
-  } else {
-    console.log(`Rejected file of type: ${file.mimetype}`);
-    cb(new Error('Only images are allowed'), false);
-  }
-};
+// Rate limiting for file uploads
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // Limit each IP to 50 uploads per windowMs
+  message: 'Too many uploads from this IP, please try again later'
+});
 
-// Configure multer for avatar uploads
+// Configure multer for avatar uploads with error handling
 const avatarUpload = multer({
   storage: avatarStorage,
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-});
+    files: 1 // Only one file at a time
+  }
+}).single('avatar');
 
-// Configure multer for post image uploads
+// Configure multer for post image uploads with error handling
 const upload = multer({
   storage: postImagesStorage,
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-});
+    files: 5 // Maximum 5 files
+  }
+}).array('images', 5);
+
+// Error handling middleware for multer
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'File size too large. Maximum size is 5MB'
+      });
+    }
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Too many files uploaded'
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+  if (err) {
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+  next();
+};
 
 module.exports = {
   avatarUpload,
   upload,
+  uploadLimiter,
+  handleMulterError
 };

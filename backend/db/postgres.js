@@ -1,53 +1,127 @@
 const { Pool } = require('pg');
+const { logger } = require('../config/logger');
 
-// Log database configuration (without sensitive info)
-console.log('Database Configuration:');
-console.log('Host:', process.env.DB_HOST);
-console.log('Port:', process.env.DB_PORT);
-console.log('Database:', process.env.DB_NAME);
-console.log('User:', process.env.DB_USER);
-
+// Enhanced connection pool configuration
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
   user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
-  ssl: {
-    rejectUnauthorized: false // Required for Neon
-  },
+  port: process.env.DB_PORT,
+  // Optimize pool settings for better performance
   max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait for a connection
+  min: 4,  // Minimum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+  maxUses: 7500, // Close and replace a connection after it has been used 7500 times
 });
 
-// Test the connection with retry logic
-async function testConnection(retries = 5, delay = 5000) {
+// Query optimization with prepared statements
+const queryCache = new Map();
+
+const getPreparedStatement = (query) => {
+  if (!queryCache.has(query)) {
+    queryCache.set(query, {
+      name: `query_${queryCache.size + 1}`,
+      text: query
+    });
+  }
+  return queryCache.get(query);
+};
+
+// Enhanced query function with retry logic and performance monitoring
+const queryWithRetry = async (text, params = [], retries = 3) => {
+  const startTime = Date.now();
+  let lastError;
+
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
-      // Test a simple query
-      const result = await client.query('SELECT NOW()');
-      console.log('Database connection test successful:', result.rows[0]);
-      client.release();
-      return true;
-    } catch (err) {
-      console.error(`Database connection attempt ${i + 1} failed:`, err.message);
-      console.error('Full error:', err);
-      if (i === retries - 1) {
-        console.error('All database connection attempts failed');
-        process.exit(1);
+      try {
+        const prepared = getPreparedStatement(text);
+        const result = await client.query(prepared, params);
+        const duration = Date.now() - startTime;
+        
+        // Log slow queries
+        if (duration > 1000) {
+          logger.warn('Slow query detected:', {
+            query: text,
+            duration,
+            params
+          });
+        }
+        
+        return result;
+      } finally {
+        client.release();
       }
-      console.log(`Retrying in ${delay/1000} seconds...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+    } catch (error) {
+      lastError = error;
+      logger.error('Query error:', {
+        error: error.message,
+        query: text,
+        attempt: i + 1
+      });
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 100));
     }
   }
-}
+  
+  throw lastError;
+};
 
-// Test the connection
-testConnection();
+// Batch query execution for better performance
+const batchQuery = async (queries) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const results = await Promise.all(
+      queries.map(({ text, params }) => 
+        client.query(getPreparedStatement(text), params)
+      )
+    );
+    await client.query('COMMIT');
+    return results;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// Connection pool event handlers
+pool.on('connect', (client) => {
+  logger.debug('New client connected to pool');
+});
+
+pool.on('error', (err, client) => {
+  logger.error('Unexpected error on idle client', err);
+});
+
+pool.on('acquire', (client) => {
+  logger.debug('Client acquired from pool');
+});
+
+pool.on('remove', (client) => {
+  logger.debug('Client removed from pool');
+});
+
+// Health check function
+const checkConnection = async () => {
+  try {
+    const result = await queryWithRetry('SELECT NOW()');
+    return result.rows[0].now;
+  } catch (error) {
+    logger.error('Database health check failed:', error);
+    throw error;
+  }
+};
 
 module.exports = {
-  query: (text, params) => pool.query(text, params),
-  pool
+  pool,
+  queryWithRetry,
+  batchQuery,
+  checkConnection
 }; 
