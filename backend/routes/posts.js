@@ -246,8 +246,8 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', 
   auth, 
   uploadLimiter,
-  upload,
-  handleMulterError,
+  upload.array('images', 5),
+  handleUploadError,
   validatePost,
   async (req, res, next) => {
     const client = await db.pool.connect();
