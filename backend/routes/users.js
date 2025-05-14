@@ -1,9 +1,13 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
-const { avatarUpload } = require('../config/cloudinary');
+const { avatarUpload, upload } = require('../config/cloudinary');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { validationResult } = require('express-validator');
+const { validateUser } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -431,46 +435,68 @@ router.put('/notifications/read-all', auth, async (req, res, next) => {
 });
 
 // Update user profile
-router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, next) => {
+router.put('/profile', auth, upload.single('avatar'), async (req, res, next) => {
   try {
-    const { name, phoneNumber } = req.body;
-    
-    if (!name) {
+    const { name, phone_number } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    // Update user profile
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (name) {
+      updateFields.push(`name = $${paramCount}`);
+      values.push(name);
+      paramCount++;
+    }
+
+    if (phone_number) {
+      updateFields.push(`phone_number = $${paramCount}`);
+      values.push(phone_number);
+      paramCount++;
+    }
+
+    if (req.file) {
+      updateFields.push(`avatar = $${paramCount}`);
+      values.push(req.file.path);
+      paramCount++;
+    }
+
+    if (updateFields.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Name is required'
+        message: 'No fields to update'
       });
     }
 
-    // Start a transaction
-    await db.query('BEGIN');
+    values.push(userId);
+    const query = `
+      UPDATE users 
+      SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramCount}
+      RETURNING id, name, email, avatar, phone_number, rating, created_at
+    `;
 
-    try {
-      let avatarUrl = null;
+    const result = await db.query(query, values);
 
-      // If a new avatar was uploaded
-      if (req.file) {
-        console.log('Processing new avatar upload:', req.file);
-        avatarUrl = req.file.path; // Cloudinary provides the URL in the path property
-        console.log('New avatar URL:', avatarUrl);
-      }
-
-      // Update user profile
-      const result = await db.query(
-        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar) WHERE id = $4 RETURNING id, name, email, avatar, phone_number, rating',
-        [name, phoneNumber, avatarUrl, req.user.id]
-      );
-
-      await db.query('COMMIT');
-
-      res.json({
-        success: true,
-        user: result.rows[0]
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
     }
+
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
   } catch (error) {
     next(error);
   }
