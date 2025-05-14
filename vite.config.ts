@@ -33,19 +33,7 @@ export default defineConfig(({ mode }) => {
       assetsDir: 'assets',
       sourcemap: true,
       chunkSizeWarningLimit: 1000,
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: true,
-          drop_debugger: true
-        }
-      },
       rollupOptions: {
-        external: [
-          '@capacitor/core',
-          '@capacitor/android',
-          '@capacitor/ios'
-        ],
         onwarn(warning, warn) {
           // Ignore certain warnings
           if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
@@ -111,7 +99,6 @@ export default defineConfig(({ mode }) => {
       'process.env': env
     },
     optimizeDeps: {
-      exclude: ['@capacitor/core', '@capacitor/android', '@capacitor/ios'],
       include: [
         'react',
         'react-dom',
