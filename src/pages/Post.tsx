@@ -264,6 +264,15 @@ const Post = () => {
               <Select 
                 onValueChange={handleSelectChange}
                 value={formData.category}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    // Prevent closing if we're focusing the search input
+                    const activeElement = document.activeElement;
+                    if (activeElement?.tagName === 'INPUT') {
+                      return false;
+                    }
+                  }
+                }}
               >
                 <SelectTrigger id="category" className="w-full">
                   <SelectValue placeholder="Select category" />
@@ -275,22 +284,16 @@ const Post = () => {
                       type="text"
                       inputMode="text"
                       autoComplete="off"
+                      enterKeyHint="search"
                       placeholder="Search categories..."
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
                       className="h-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const input = e.target as HTMLInputElement;
-                        input.focus();
-                      }}
-                      onTouchStart={(e) => {
-                        e.stopPropagation();
-                        const input = e.target as HTMLInputElement;
-                        input.focus();
-                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                       onFocus={(e) => e.stopPropagation()}
+                      onBlur={(e) => e.stopPropagation()}
                     />
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
