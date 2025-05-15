@@ -279,7 +279,8 @@ const Post = () => {
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                       onFocus={(e) => e.stopPropagation()}         // Add this
-                      onTouchStart={(e) => e.stopPropagation()}    // Add this for mobile touch
+                      onTouchStart={(e) => e.stopPropagation()} 
+                      onMouseDown={(e) => e.stopPropagation()}   // Add this for mobile touch
                     />
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
