@@ -272,20 +272,25 @@ const Post = () => {
                   <div className="flex items-center px-3 pb-2 sticky top-0 bg-background border-b">
                     <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                     <Input
+                      type="text"
+                      inputMode="text"
+                      autoComplete="off"
                       placeholder="Search categories..."
                       value={categorySearch}
                       onChange={(e) => setCategorySearch(e.target.value)}
                       className="h-8"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const input = e.target as HTMLInputElement;
+                        input.focus();
+                      }}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        const input = e.target as HTMLInputElement;
+                        input.focus();
+                      }}
                       onKeyDown={(e) => e.stopPropagation()}
                       onFocus={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      onTouchEnd={(e) => e.stopPropagation()}
-                      onTouchMove={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
                     />
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
