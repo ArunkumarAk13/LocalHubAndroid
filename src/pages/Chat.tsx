@@ -194,7 +194,7 @@ const Chat = () => {
 
   if (!selectedChat) {
     return (
-      <div className="container mx-auto p-4 h-[calc(100vh-4rem)]">
+      <div className="container mx-auto p-4 h-[calc(95vh-4rem)]">
         <Card className="h-full">
           <div className="p-4 border-b">
             <div className="flex items-center justify-between">
@@ -220,7 +220,7 @@ const Chat = () => {
               />
             </div>
           </div>
-          <ScrollArea className="h-[calc(100vh-12rem)]">
+          <ScrollArea className="h-[calc(95vh-12rem)]">
             <div className="p-4 space-y-4">
               {filteredChats.length > 0 ? (
                 filteredChats.map((chat) => (
@@ -269,7 +269,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 h-[calc(100vh-4rem)]">
+    <div className="container mx-auto p-4 h-[calc(95vh-4rem)]">
       <Card className="flex flex-col h-full">
         <div className="p-4 border-b">
           <div className="flex items-center gap-3">
