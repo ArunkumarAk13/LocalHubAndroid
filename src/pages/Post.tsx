@@ -231,8 +231,8 @@ const Post = () => {
           <h1 className="text-2xl font-bold">{postId ? 'Edit Post' : 'Create a Post'}</h1>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-card rounded-lg p-6 shadow-sm space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 w-full">
+          <div className="bg-card w-full p-6 shadow-sm space-y-6">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-base font-medium">Title*</Label>
               <Input
