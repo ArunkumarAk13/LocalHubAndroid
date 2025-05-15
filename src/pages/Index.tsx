@@ -122,7 +122,7 @@ const Index: React.FC = () => {
   };
 
   return (
-    <div className="h-[90vh] overflow-y-auto">
+    <div className="min-h-screen pb-20">
       <div className="w-full px-2 py-4 md:px-4 md:max-w-7xl md:mx-auto">
         <div className="sticky top-14 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
           <div className="flex flex-col sm:flex-row gap-2">
