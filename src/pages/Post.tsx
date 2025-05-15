@@ -219,8 +219,8 @@ const Post = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 w-full">
-      <div className="w-full px-4 py-8">
-        <div className="flex items-center mb-6">
+      <div className="w-full">
+        <div className="flex items-center p-4">
           <Button 
             variant="ghost" 
             className="mr-2 pl-0" 
@@ -231,8 +231,8 @@ const Post = () => {
           <h1 className="text-2xl font-bold">{postId ? 'Edit Post' : 'Create a Post'}</h1>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6 w-full">
-          <div className="bg-card w-full p-6 shadow-sm space-y-6">
+        <form onSubmit={handleSubmit} className="w-full">
+          <div className="bg-card w-full px-4 space-y-6">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-base font-medium">Title*</Label>
               <Input

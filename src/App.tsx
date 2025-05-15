@@ -38,7 +38,7 @@ const AppRoutes = () => {
   return (
     <>
       <Navbar />
-      <main className={isAuthPage ? "h-screen" : "container py-1"}>
+      <main className={isAuthPage ? "h-screen" : "container py-6"}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
