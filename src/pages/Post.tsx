@@ -64,6 +64,7 @@ const Post = () => {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
   const [formData, setFormData] = useState({
     title: '',
@@ -261,56 +262,59 @@ const Post = () => {
 
             <div className="space-y-2">
               <Label htmlFor="category" className="text-base font-medium">Category*</Label>
-              <Select 
-                onValueChange={handleSelectChange}
-                value={formData.category}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    // Prevent closing if we're focusing the search input
-                    const activeElement = document.activeElement;
-                    if (activeElement?.tagName === 'INPUT') {
-                      return false;
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger id="category" className="w-full">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="flex items-center px-3 pb-2 sticky top-0 bg-background border-b">
-                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    <Input
-                      type="text"
-                      inputMode="text"
-                      autoComplete="off"
-                      enterKeyHint="search"
-                      placeholder="Search categories..."
-                      value={categorySearch}
-                      onChange={(e) => setCategorySearch(e.target.value)}
-                      className="h-8"
-                      onClick={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      onBlur={(e) => e.stopPropagation()}
-                    />
+              <div className="relative">
+                <Input
+                  type="text"
+                  id="category-search"
+                  placeholder={formData.category || "Search and select category..."}
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  onFocus={() => setIsSearching(true)}
+                  className="w-full"
+                />
+                {isSearching && (
+                  <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg">
+                    <div className="max-h-[300px] overflow-y-auto py-1">
+                      {filteredCategories.length > 0 ? (
+                        filteredCategories.map(category => (
+                          <div
+                            key={category}
+                            className={`px-3 py-2 cursor-pointer hover:bg-accent ${formData.category === category ? 'bg-accent' : ''}`}
+                            onClick={() => {
+                              handleSelectChange(category);
+                              setCategorySearch('');
+                              setIsSearching(false);
+                            }}
+                          >
+                            {category}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No categories found
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {filteredCategories.length > 0 ? (
-                      filteredCategories.map(category => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">
-                        No categories found
-                      </div>
-                    )}
-                  </div>
-                </SelectContent>
-              </Select>
+                )}
+              </div>
+              {formData.category && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div>Selected: <span className="font-medium text-foreground">{formData.category}</span></div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      handleSelectChange('');
+                      setCategorySearch('');
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
