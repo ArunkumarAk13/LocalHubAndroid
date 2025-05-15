@@ -223,7 +223,7 @@ const Post = () => {
         <div className="flex items-center p-4">
           <Button 
             variant="ghost" 
-            className="mr-2 pl-0 hover:bg-transparent" 
+            className="mr-2 pl-0 hover:bg-black" 
             onClick={() => navigate(-1)}
           >
             <X size={16} />
