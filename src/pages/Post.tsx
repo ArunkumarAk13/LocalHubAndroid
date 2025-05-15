@@ -223,7 +223,7 @@ const Post = () => {
         <div className="flex items-center p-4">
           <Button 
             variant="ghost" 
-            className="mr-2 pl-0" 
+            className="mr-2 pl-0 hover:bg-white hover:text-black" 
             onClick={() => navigate(-1)}
           >
             <X size={16} />
@@ -396,7 +396,7 @@ const Post = () => {
           <div className="flex justify-center pt-6">
             <Button 
               type="submit" 
-              className="bg-accent1-500 text-white font-medium py-3 px-12 rounded-lg text-lg shadow-lg w-full max-w-md cursor-default"
+              className="bg-accent1-500 text-white font-medium py-3 px-12 rounded-lg text-lg shadow-lg w-full max-w-md hover:bg-white hover:text-black"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Saving...' : postId ? 'Update Post' : 'Create Post'}
