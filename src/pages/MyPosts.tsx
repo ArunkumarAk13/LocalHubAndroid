@@ -44,7 +44,7 @@ const MyPosts: React.FC = () => {
     
     const fetchPosts = async () => {
       try {
-        const response = await postsAPI.getUserPosts(user.id);
+        const response = await postsAPI.getUserPosts(String(user.id));
         if (response.success) {
           setPosts(response.posts.map((post: any) => ({
             id: post.id,
@@ -189,8 +189,8 @@ const MyPosts: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen pb-16">
-      <div className="w-[90%] mx-auto px-4 py-6">
+    <div className="h-[90vh] bg-background overflow-y-auto">
+      <div className="w-full max-w-5xl mx-auto px-3 sm:px-4 py-4">
         <div className="flex items-center mb-6">
           <Button 
             variant="ghost" 

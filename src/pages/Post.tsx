@@ -218,7 +218,7 @@ const Post = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 w-full">
+    <div className="h-[90vh] bg-background w-full overflow-y-auto">
       <div className="w-full max-w-5xl mx-auto px-3 sm:px-4">
         <div className="flex items-center p-4">
           <Button 
