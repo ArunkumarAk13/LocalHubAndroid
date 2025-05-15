@@ -1,43 +1,16 @@
 const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
-const { upload, uploadLimiter, handleUploadError } = require('../middleware/upload');
-const { validatePost } = require('../middleware/validation');
-const { validationResult } = require('express-validator');
-const cloudinary = require('cloudinary');
+const { upload } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// Get all posts with filters and pagination
+// Get all posts with filters
 router.get('/', async (req, res, next) => {
   try {
-    const { 
-      category, 
-      search, 
-      limit = 20, 
-      offset = 0,
-      sort = 'created_at',
-      order = 'DESC'
-    } = req.query;
-    
-    // Validate pagination parameters
-    const validatedLimit = Math.min(Math.max(parseInt(limit), 1), 50);
-    const validatedOffset = Math.max(parseInt(offset), 0);
-    
-    // Validate sort parameters
-    const allowedSortFields = ['created_at', 'title', 'rating'];
-    const validatedSort = allowedSortFields.includes(sort) ? sort : 'created_at';
-    const validatedOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const { category, search, limit = 20, offset = 0 } = req.query;
     
     let query = `
-      WITH post_ratings AS (
-        SELECT 
-          post_id,
-          AVG(rating) as average_rating,
-          COUNT(*) as rating_count
-        FROM ratings
-        GROUP BY post_id
-      )
       SELECT 
         p.id, p.title, p.description, p.location, p.created_at, p.purchased,
         c.name AS category,
@@ -56,9 +29,16 @@ router.get('/', async (req, res, next) => {
            FROM post_images pi
            WHERE pi.post_id = p.id), '[]'
         ) AS images,
-        COALESCE(pr.average_rating, 0) AS average_rating,
-        COALESCE(pr.rating_count, 0) AS rating_count,
-        COUNT(*) OVER() as total_count
+        COALESCE(
+          (SELECT AVG(r.rating)
+           FROM ratings r
+           WHERE r.post_id = p.id), 0
+        ) AS average_rating,
+        COALESCE(
+          (SELECT COUNT(r.id)
+           FROM ratings r
+           WHERE r.post_id = p.id), 0
+        ) AS rating_count
       FROM 
         posts p
       JOIN 
@@ -67,8 +47,6 @@ router.get('/', async (req, res, next) => {
         categories c ON p.category_id = c.id
       LEFT JOIN
         user_settings us ON u.id = us.user_id
-      LEFT JOIN
-        post_ratings pr ON p.id = pr.post_id
       WHERE
         p.purchased = false
     `;
@@ -90,22 +68,14 @@ router.get('/', async (req, res, next) => {
       query += ` AND ${conditions.join(' AND ')}`;
     }
     
-    query += ` ORDER BY p.${validatedSort} ${validatedOrder} LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
-    queryParams.push(validatedLimit, validatedOffset);
+    query += ` ORDER BY p.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(limit, offset);
     
     const result = await db.query(query, queryParams);
     
-    const totalCount = result.rows[0]?.total_count || 0;
-    
     res.json({
       success: true,
-      posts: result.rows,
-      pagination: {
-        total: parseInt(totalCount),
-        limit: validatedLimit,
-        offset: validatedOffset,
-        hasMore: validatedOffset + validatedLimit < totalCount
-      }
+      posts: result.rows
     });
   } catch (error) {
     next(error);
@@ -242,107 +212,104 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// Create a new post with validation and error handling
-router.post('/', 
-  auth, 
-  uploadLimiter,
-  upload.array('images', 5),
-  handleUploadError,
-  validatePost,
-  async (req, res, next) => {
-    const client = await db.pool.connect();
+// Create a new post
+router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
+  const client = await db.query('BEGIN');
+  
+  try {
+    const { title, description, category, location } = req.body;
     
-    try {
-      await client.query('BEGIN');
-      
-      const { title, description, category, location } = req.body;
-      
-      // Get or create category
-      const categoryResult = await client.query(
-        'SELECT id FROM categories WHERE name = $1',
+    if (!title || !description || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, and category are required'
+      });
+    }
+    
+    // Get category ID
+    const categoryResult = await db.query('SELECT id FROM categories WHERE name = $1', [category]);
+    
+    let categoryId;
+    if (categoryResult.rows.length === 0) {
+      // If category doesn't exist, create it
+      console.log("Creating new category:", category);
+      const newCategoryResult = await db.query(
+        'INSERT INTO categories (name) VALUES ($1) RETURNING id',
         [category]
       );
-      
-      let categoryId;
-      if (categoryResult.rows.length === 0) {
-        const newCategoryResult = await client.query(
-          'INSERT INTO categories (name) VALUES ($1) RETURNING id',
-          [category]
-        );
-        categoryId = newCategoryResult.rows[0].id;
-      } else {
-        categoryId = categoryResult.rows[0].id;
+      categoryId = newCategoryResult.rows[0].id;
+    } else {
+      categoryId = categoryResult.rows[0].id;
+    }
+    
+    // Insert post
+    const postResult = await db.query(
+      'INSERT INTO posts (title, description, category_id, user_id, location) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [title, description, categoryId, req.user.id, location]
+    );
+    
+    const postId = postResult.rows[0].id;
+    
+    // Handle image uploads
+    const imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        // Cloudinary provides the URL in the path property
+        const imageUrl = file.path;
+        console.log('Saving image URL:', imageUrl);
+        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
+        imageUrls.push(imageUrl);
       }
-      
-      // Insert post
-      const postResult = await client.query(
-        'INSERT INTO posts (title, description, category_id, user_id, location) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [title, description, categoryId, req.user.id, location]
-      );
-      
-      const postId = postResult.rows[0].id;
-      
-      // Handle image uploads
-      const imageUrls = [];
-      if (req.files && req.files.length > 0) {
-        const imageValues = req.files.map(file => [postId, file.path]);
-        await client.query(
-          'INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)',
-          imageValues
-        );
-        imageUrls.push(...req.files.map(file => file.path));
-      } else {
-        const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
-        await client.query(
-          'INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)',
-          [postId, defaultImage]
-        );
-        imageUrls.push(defaultImage);
-      }
-      
-      // Notify subscribed users
-      await client.query(`
+    } else {
+      // Add a default image if no images were uploaded
+      const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
+      await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
+      imageUrls.push(defaultImage);
+    }
+    
+    // Check for subscribed users to notify
+    const subscribedUsersResult = await db.query(`
+      SELECT u.id
+      FROM users u
+      JOIN category_subscriptions cs ON u.id = cs.user_id
+      WHERE cs.category_id = $1 AND u.id != $2
+    `, [categoryId, req.user.id]);
+    
+    // Create notifications for subscribed users
+    for (const user of subscribedUsersResult.rows) {
+      await db.query(`
         INSERT INTO notifications (user_id, title, description, post_id)
-        SELECT 
-          u.id,
-          $1,
-          $2,
-          $3
-        FROM users u
-        JOIN category_subscriptions cs ON u.id = cs.user_id
-        WHERE cs.category_id = $4 AND u.id != $5
+        VALUES ($1, $2, $3, $4)
       `, [
+        user.id,
         `New post in ${category}`,
         title,
-        postId,
-        categoryId,
-        req.user.id
+        postId
       ]);
-      
-      await client.query('COMMIT');
-      
-      res.status(201).json({
-        success: true,
-        post: {
-          id: postId,
-          title,
-          description,
-          category,
-          location,
-          images: imageUrls,
-          posted_by: {
-            id: req.user.id,
-            name: req.user.name
-          },
-          created_at: new Date()
-        }
-      });
-    } catch (error) {
-      await client.query('ROLLBACK');
-      next(error);
-    } finally {
-      client.release();
     }
+    
+    await db.query('COMMIT');
+    
+    res.status(201).json({
+      success: true,
+      post: {
+        id: postId,
+        title,
+        description,
+        category,
+        location,
+        images: imageUrls,
+        posted_by: {
+          id: req.user.id,
+          name: req.user.name
+        },
+        created_at: new Date()
+      }
+    });
+  } catch (error) {
+    await db.query('ROLLBACK');
+    next(error);
+  }
 });
 
 // Delete a post
@@ -416,71 +383,123 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 });
 
 // Update a post
-router.put('/:id', auth, upload.array('images', 5), handleUploadError, async (req, res, next) => {
+router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
+  const client = await db.query('BEGIN');
+  
   try {
-    const postId = req.params.id;
-    const { title, description, category, location, price, contact } = req.body;
-    const userId = req.user.id;
-
-    // Validate input
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
+    const { id } = req.params;
+    const { title, description, category, location } = req.body;
+    
     // Check if post exists and belongs to user
-    const post = await db.query(
+    const postCheck = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
-      [postId, userId]
+      [id, req.user.id]
     );
-
-    if (post.rows.length === 0) {
+    
+    if (postCheck.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Post not found or unauthorized'
+        message: 'Post not found or you do not have permission to edit it'
       });
     }
-
-    // Handle image uploads
-    let imageUrls = post.rows[0].images || [];
-    if (req.files && req.files.length > 0) {
-      // Upload new images to Cloudinary
-      const uploadPromises = req.files.map(file => 
-        cloudinary.uploader.upload(file.path, {
-          folder: 'localhub/posts',
-          resource_type: 'auto'
-        })
+    
+    if (!title || !description || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, and category are required'
+      });
+    }
+    
+    // Get category ID
+    const categoryResult = await db.query('SELECT id FROM categories WHERE name = $1', [category]);
+    
+    let categoryId;
+    if (categoryResult.rows.length === 0) {
+      // If category doesn't exist, create it
+      const newCategoryResult = await db.query(
+        'INSERT INTO categories (name) VALUES ($1) RETURNING id',
+        [category]
       );
-
-      const uploadResults = await Promise.all(uploadPromises);
-      imageUrls = uploadResults.map(result => result.secure_url);
-
-      // Delete old images from Cloudinary if they exist
-      if (post.rows[0].images) {
-        const deletePromises = post.rows[0].images.map(url => {
-          const publicId = url.split('/').pop().split('.')[0];
-          return cloudinary.uploader.destroy(publicId);
-        });
-        await Promise.all(deletePromises);
+      categoryId = newCategoryResult.rows[0].id;
+    } else {
+      categoryId = categoryResult.rows[0].id;
+    }
+    
+    // Update post
+    await db.query(
+      'UPDATE posts SET title = $1, description = $2, category_id = $3, location = $4 WHERE id = $5',
+      [title, description, categoryId, location, id]
+    );
+    
+    // Handle images
+    let existingImages = [];
+    if (req.body.existingImages) {
+      try {
+        existingImages = JSON.parse(req.body.existingImages);
+      } catch (error) {
+        console.error('Error parsing existingImages:', error);
       }
     }
-
-    // Update post
-    const updatedPost = await db.query(
-      `UPDATE posts 
-       SET title = $1, description = $2, category = $3, 
-           location = $4, price = $5, contact = $6, 
-           images = $7, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8 AND user_id = $9
-       RETURNING *`,
-      [title, description, category, location, price, contact, imageUrls, postId, userId]
-    );
-
+    
+    // Delete images that are not in the existingImages list
+    if (existingImages.length > 0) {
+      await db.query(
+        'DELETE FROM post_images WHERE post_id = $1 AND image_url != ALL($2)',
+        [id, existingImages]
+      );
+    } else {
+      // If no existing images to keep, delete all
+      await db.query('DELETE FROM post_images WHERE post_id = $1', [id]);
+    }
+    
+    // Add new images if provided
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const imageUrl = file.path;
+        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [id, imageUrl]);
+      }
+    }
+    
+    await db.query('COMMIT');
+    
+    // Get updated post with all details
+    const updatedPost = await db.query(`
+      SELECT 
+        p.id, p.title, p.description, p.location, p.created_at, p.purchased,
+        c.name AS category,
+        json_build_object(
+          'id', u.id,
+          'name', u.name,
+          'avatar', u.avatar,
+          'rating', u.rating,
+          'phone_number', COALESCE(u.phone_number, ''),
+          'settings', json_build_object(
+            'whatsappEnabled', COALESCE(us.whatsapp_enabled, false)
+          )
+        ) AS posted_by,
+        COALESCE(
+          (SELECT json_agg(pi.image_url)
+           FROM post_images pi
+           WHERE pi.post_id = p.id), '[]'
+        ) AS images
+      FROM 
+        posts p
+      JOIN 
+        users u ON p.user_id = u.id
+      JOIN 
+        categories c ON p.category_id = c.id
+      LEFT JOIN
+        user_settings us ON u.id = us.user_id
+      WHERE 
+        p.id = $1
+    `, [id]);
+    
     res.json({
       success: true,
-      data: updatedPost.rows[0]
+      post: updatedPost.rows[0]
     });
   } catch (error) {
+    await db.query('ROLLBACK');
     next(error);
   }
 });

@@ -1,144 +1,73 @@
-# LocalHub - Local Business Discovery Platform
+# Welcome to your Lovable project
 
-A full-stack application for discovering and connecting with local businesses, available on web and Android platforms.
+## Project info
 
-## Project Structure
+**URL**: https://lovable.dev/projects/2edde6e4-cefb-4102-a00b-317d6f0560b1
 
-```
-localhub/
-├── backend/           # Node.js backend
-├── android/          # Android native app
-└── web/             # React web frontend
-```
+## How can I edit this code?
 
-## Deployment Instructions
+There are several ways of editing your application.
 
-### Backend (Render)
+**Use Lovable**
 
-1. Create a new Web Service on Render
-2. Connect your GitHub repository
-3. Configure the following:
-   - Build Command: `cd backend && npm install --production`
-   - Start Command: `cd backend && npm start`
-   - Environment Variables:
-     ```
-     NODE_ENV=production
-     PORT=5000
-     DB_HOST=dpg-d0iad8p5pdvs73fodo70-a.singapore-postgres.render.com
-     DB_PORT=5432
-     DB_NAME=localhubdb
-     DB_USER=localhub
-     DB_PASSWORD=pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg
-     JWT_SECRET=your-jwt-secret
-     CLOUDINARY_CLOUD_NAME=your-cloud-name
-     CLOUDINARY_API_KEY=your-api-key
-     CLOUDINARY_API_SECRET=your-api-secret
-     ```
-4. Advanced Settings:
-   - Node Version: 18.x (LTS)
-   - Auto-Deploy: Enabled
-   - Health Check Path: /api/health
+Simply visit the [Lovable Project](https://lovable.dev/projects/2edde6e4-cefb-4102-a00b-317d6f0560b1) and start prompting.
 
-### Database (Render)
+Changes made via Lovable will be committed automatically to this repo.
 
-The database is already set up on Render with the following details:
-- Host: dpg-d0iad8p5pdvs73fodo70-a.singapore-postgres.render.com
-- Port: 5432
-- Database: localhubdb
-- Username: localhub
-- Password: pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg
+**Use your preferred IDE**
 
-Connection URLs:
-- Internal: postgresql://localhub:pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg@dpg-d0iad8p5pdvs73fodo70-a/localhubdb
-- External: postgresql://localhub:pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg@dpg-d0iad8p5pdvs73fodo70-a.singapore-postgres.render.com/localhubdb
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-### Web Frontend (Vercel)
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-1. Create a new project on Vercel
-2. Connect your GitHub repository
-3. Configure the following:
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Environment Variables:
-     ```
-     VITE_API_URL=https://your-backend-url.onrender.com
-     ```
+Follow these steps:
 
-### Android App
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-1. Update `android/app/src/main/java/com/localhub/app/config/ApiConfig.java` with your production API URL
-2. Build the release APK:
-   ```bash
-   cd android
-   ./gradlew assembleRelease
-   ```
-3. The APK will be available at `android/app/build/outputs/apk/release/app-release.apk`
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
 
-## Development Setup
+# Step 3: Install the necessary dependencies.
+npm i
 
-### Backend
-
-```bash
-cd backend
-npm install
-# Create .env file with the following content:
-# NODE_ENV=development
-# PORT=5000
-# DB_HOST=dpg-d0iad8p5pdvs73fodo70-a.singapore-postgres.render.com
-# DB_PORT=5432
-# DB_NAME=localhubdb
-# DB_USER=localhub
-# DB_PASSWORD=pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg
+# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-### Web Frontend
+**Edit a file directly in GitHub**
 
-```bash
-npm install
-npm run dev
-```
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-### Android
+**Use GitHub Codespaces**
 
-1. Open the project in Android Studio
-2. Sync Gradle files
-3. Run the app on an emulator or physical device
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## Environment Variables
+## What technologies are used for this project?
 
-### Backend (.env)
-```
-NODE_ENV=development
-PORT=5000
-DB_HOST=dpg-d0iad8p5pdvs73fodo70-a.singapore-postgres.render.com
-DB_PORT=5432
-DB_NAME=localhubdb
-DB_USER=localhub
-DB_PASSWORD=pftzZJtD46aG2kXHfbKsDkJHmJXsxKQg
-JWT_SECRET=your-secret
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
-```
+This project is built with:
 
-### Web Frontend (.env)
-```
-VITE_API_URL=http://localhost:5000
-```
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
-## API Documentation
+## How can I deploy this project?
 
-The API documentation is available at `/api/docs` when running the backend server.
+Simply open [Lovable](https://lovable.dev/projects/2edde6e4-cefb-4102-a00b-317d6f0560b1) and click on Share -> Publish.
 
-## Contributing
+## Can I connect a custom domain to my Lovable project?
 
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Yes, you can!
 
-## License
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-This project is licensed under the MIT License.
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
