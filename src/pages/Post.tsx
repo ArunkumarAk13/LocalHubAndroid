@@ -278,7 +278,8 @@ const Post = () => {
                       className="h-8"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}         // Add this
+                      onTouchStart={(e) => e.stopPropagation()}    // Add this for mobile touch
                     />
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
