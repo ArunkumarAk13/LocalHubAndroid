@@ -393,10 +393,10 @@ const Post = () => {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-center pt-6">
             <Button 
               type="submit" 
-              className="bg-accent1-500 hover:bg-accent1-600 text-white font-medium py-3 px-8 rounded-lg text-lg shadow-lg"
+              className="bg-accent1-500 hover:bg-accent1-600 text-white font-medium py-3 px-12 rounded-lg text-lg shadow-lg w-full max-w-md"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Saving...' : postId ? 'Update Post' : 'Create Post'}
