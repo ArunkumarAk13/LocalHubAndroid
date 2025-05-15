@@ -1,52 +1,28 @@
 import axios from 'axios';
 
-// Get API URL from environment variable with fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhub-backend-so0i.onrender.com/api';
+// Create an axios instance
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Debug environment variables
-console.log('Environment Variables:', {
-  VITE_API_URL: import.meta.env.VITE_API_URL,
-  MODE: import.meta.env.MODE,
-  DEV: import.meta.env.DEV,
-  PROD: import.meta.env.PROD,
-  BASE_URL: import.meta.env.BASE_URL
-});
-
-console.log('Using API Base URL:', API_BASE_URL);
-
-// Create axios instance with explicit configuration
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
-  timeout: 30000, // Increased to 30 seconds
-  validateStatus: function (status) {
-    return status >= 200 && status < 500; // Accept all status codes less than 500
-  }
+  withCredentials: true
 });
 
 // Add a request interceptor to include the token in all authenticated requests
 api.interceptors.request.use(
   (config) => {
-    // Ensure baseURL is set correctly
-    config.baseURL = API_BASE_URL;
-    
     const token = localStorage.getItem('token');
     if (token) {
+      // Ensure the Authorization header is properly set
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('Making request to:', config.baseURL + config.url);
+      console.log('With headers:', config.headers);
+    } else {
+      console.warn('No token found in localStorage for request to:', config.baseURL + config.url);
     }
-    
-    // Log the full URL being requested
-    const fullUrl = `${config.baseURL}${config.url}`;
-    console.log('Making request to:', fullUrl);
-    console.log('Request config:', {
-      method: config.method,
-      headers: config.headers,
-      data: config.data
-    });
-    
     return config;
   },
   (error) => {
@@ -55,39 +31,13 @@ api.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle token expiration and network errors
+// Add a response interceptor to handle token expiration
 api.interceptors.response.use(
   (response) => {
-    console.log('Response received:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    });
+    console.log('Response received:', response.config.baseURL + response.config.url, response.status);
     return response;
   },
   (error) => {
-    if (error.code === 'ERR_NETWORK') {
-      console.error('Network Error - Unable to connect to the server. Please check your internet connection and try again.');
-      console.error('Failed URL:', error.config?.baseURL + error.config?.url);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        config: error.config
-      });
-      // Show a more user-friendly error message
-      error.message = 'Unable to connect to the server. Please check your internet connection and try again.';
-    } else if (error.code === 'ECONNABORTED') {
-      console.error('Request Timeout - The server took too long to respond.');
-      console.error('Failed URL:', error.config?.baseURL + error.config?.url);
-      // Show a more user-friendly error message
-      error.message = 'The server took too long to respond. Please try again.';
-    } else if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('subscribedCategories');
-      localStorage.removeItem('userNotifications');
-      window.location.href = '/login';
-    }
-    
     console.error('API Error:', {
       url: error.config?.baseURL + error.config?.url,
       status: error.response?.status,
@@ -96,6 +46,13 @@ api.interceptors.response.use(
       token: error.config?.headers?.Authorization ? 'Present' : 'Missing'
     });
     
+    if (error.response?.status === 401) {
+      console.log('Authentication error, clearing token and redirecting to login');
+      localStorage.removeItem('token');
+      localStorage.removeItem('subscribedCategories');
+      localStorage.removeItem('userNotifications');
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
@@ -103,37 +60,16 @@ api.interceptors.response.use(
 // Authentication API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      return response.data;
-    } catch (error: any) {
-      if (error.code === 'ECONNABORTED') {
-        throw new Error('Login request timed out. Please try again.');
-      }
-      throw error;
-    }
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
   },
   register: async (name: string, email: string, password: string, phoneNumber: string) => {
-    try {
-      const response = await api.post('/auth/register', { name, email, password, phoneNumber });
-      return response.data;
-    } catch (error: any) {
-      if (error.code === 'ECONNABORTED') {
-        throw new Error('Registration request timed out. Please try again.');
-      }
-      throw error;
-    }
+    const response = await api.post('/auth/register', { name, email, password, phoneNumber });
+    return response.data;
   },
   getCurrentUser: async () => {
-    try {
-      const response = await api.get('/auth/me');
-      return response.data;
-    } catch (error: any) {
-      if (error.code === 'ECONNABORTED') {
-        throw new Error('Failed to fetch user data. Please try again.');
-      }
-      throw error;
-    }
+    const response = await api.get('/auth/me');
+    return response.data;
   },
 };
 
