@@ -231,6 +231,8 @@ const MyPosts: React.FC = () => {
         return;
       }
 
+      console.log("User submitted rating:", rating);
+      
       setIsRatingDialogOpen(false);
       
       // Show loading indicator
