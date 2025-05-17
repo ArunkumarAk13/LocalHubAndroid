@@ -70,9 +70,9 @@ api.interceptors.response.use(
 export const authAPI = {
   login: async (phoneNumber: string, password: string) => {
     try {
-      // Send as phone_number to match the database column name
+      // The backend still expects email parameter, not phone_number
       const response = await api.post('/api/auth/login', { 
-        phone_number: phoneNumber, 
+        email: phoneNumber,  // Backend uses email field but we're passing phone number 
         password 
       });
       return response.data;
