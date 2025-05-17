@@ -115,26 +115,25 @@ export const postsAPI = {
   },
   markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
     try {
-      // Format data according to what the backend expects
-      const data: { 
-        sellerId?: string; 
-        seller_id?: string; 
-        rating?: number 
-      } = {};
-      
-      // Try both formats to ensure compatibility
-      if (sellerId) {
-        data.sellerId = sellerId;
-        data.seller_id = sellerId; // Add snake_case version too
-      }
-      if (rating) data.rating = rating;
+      // Format data with all possible variations to ensure it works
+      const data = {
+        // Include both snake_case and camelCase for compatibility
+        sellerId,
+        seller_id: sellerId,
+        userId: sellerId,
+        user_id: sellerId,
+        rating,
+        post_id: postId,
+        postId,
+        purchased: true,
+        update_user_rating: true // Signal to backend that we want to update the seller rating
+      };
       
       console.log('Marking post as purchased with data:', data);
       
       const response = await api.patch(`/api/posts/${postId}/purchased`, data);
       console.log('Purchase response:', response.data);
       
-      // Don't try to create a separate rating - the backend already handles this
       return response.data;
     } catch (error) {
       console.error("Error marking post as purchased:", error);
@@ -147,17 +146,26 @@ export const postsAPI = {
 export const ratingsAPI = {
   addRating: async (postId: string, rating: number, comment?: string, userId?: string) => {
     try {
-      // Log the request headers for debugging
-      console.log('Adding rating with token:', localStorage.getItem('token') ? 'Present' : 'Missing');
-      
-      // Try different parameter formats to see what the server accepts
+      // Include all fields with both naming conventions to ensure compatibility
       const data = {
+        // Post info
         post_id: postId, 
+        postId: postId,
+        
+        // User info
         user_id: userId,
-        postId: postId,  // Try camelCase too
-        userId: userId,  // Try camelCase too
+        userId: userId,
+        seller_id: userId,
+        sellerId: userId,
+        
+        // Rating details
         rating: rating,
-        comment: comment || ''
+        comment: comment || '',
+        
+        // Flags to ensure the backend treats this properly
+        type: 'seller_rating',
+        is_seller_rating: true,
+        update_user_rating: true
       };
       
       console.log('Sending rating data:', data);
@@ -178,6 +186,37 @@ export const ratingsAPI = {
     }
   },
   
+  // Direct method to create a rating specifically for a seller
+  createSellerRating: async (sellerId: string, postId: string, rating: number, comment: string = "Good seller") => {
+    try {
+      console.log(`Creating seller rating: seller=${sellerId}, post=${postId}, rating=${rating}`);
+      
+      // This is a simple, focused payload specifically for seller ratings
+      const data = {
+        seller_id: sellerId,
+        post_id: postId,
+        rating: rating,
+        comment: comment,
+        type: "seller_rating"
+      };
+      
+      // Try endpoint specifically for seller ratings first
+      try {
+        const response = await api.post('/api/user-ratings', data);
+        console.log('Seller rating response:', response.data);
+        return response.data;
+      } catch (error) {
+        // Fall back to the standard ratings endpoint
+        const response = await api.post('/api/ratings', data);
+        console.log('Fallback rating response:', response.data);
+        return response.data;
+      }
+    } catch (error) {
+      console.error('Failed to create seller rating:', error);
+      return { success: false, message: "Failed to create seller rating" };
+    }
+  },
+  
   getPostRatings: async (postId: string) => {
     try {
       const response = await api.get(`/api/ratings/post/${postId}`);
@@ -191,45 +230,52 @@ export const ratingsAPI = {
       };
     }
   },
+
+  // Direct method to update a user's rating by adding a specific review
+  addUserReview: async (userId: string, rating: number, comment: string = "Great seller!") => {
+    try {
+      console.log(`Adding review for user ${userId} with rating ${rating}`);
+      
+      // Format data according to backend expectations
+      const data = {
+        user_id: userId,
+        rating: rating,
+        comment: comment
+      };
+      
+      // Send to the user ratings endpoint
+      const response = await api.post(`/api/users/${userId}/ratings`, data);
+      console.log('User review response:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('User rating update failed:', error);
+      if (error.response) {
+        return error.response.data;
+      }
+      return { success: false, message: "Failed to update user rating" };
+    }
+  },
 };
 
 // Users API
 export const usersAPI = {
   getUserProfile: async (userId: string) => {
-    // Add retry logic for reliability
-    let attempts = 0;
-    const maxAttempts = 3;
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    
-    while (attempts < maxAttempts) {
-      try {
-        attempts++;
-        // Add cache busting to ensure fresh data
-        const cacheBuster = new Date().getTime();
-        const url = `${API_BASE_URL}/api/users/${userId}?_=${cacheBuster}`;
-        
-        console.log(`Fetching user profile (attempt ${attempts}): ${url}`);
-        
-        const response = await api.get(url);
-        console.log('User profile response:', response.data);
-        return response.data;
-      } catch (error) {
-        console.error(`Error fetching user profile (attempt ${attempts}):`, error);
-        
-        if (attempts >= maxAttempts) {
-          console.error('Max attempts reached, giving up');
-          if (error.response) {
-            return error.response.data || { success: false, message: "Failed to fetch user profile" };
-          }
-          return { success: false, message: "Failed to fetch user profile" };
-        }
-        
-        // Wait before retrying
-        await delay(1000 * attempts);
+    try {
+      // Add cache busting to ensure fresh data
+      const cacheBuster = new Date().getTime();
+      const url = `${API_BASE_URL}/api/users/${userId}?_=${cacheBuster}`;
+      
+      console.log('Fetching user profile:', url);
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      if (error.response) {
+        return error.response.data;
       }
+      return { success: false, message: "Failed to fetch user profile" };
     }
-    
-    return { success: false, message: "Failed to fetch user profile after retries" };
   },
   
   updateProfile: async (data: { name: string; avatar: string }) => {
@@ -438,6 +484,32 @@ export const usersAPI = {
         return error.response.data;
       }
       throw error;
+    }
+  },
+
+  // Method to add a direct user review
+  addUserReview: async (userId: string, rating: number, comment: string = "Great seller!") => {
+    try {
+      console.log(`Adding review for user ${userId} with rating ${rating}`);
+      
+      // Format data according to backend expectations
+      const data = {
+        user_id: userId,
+        rating: rating,
+        comment: comment
+      };
+      
+      // Send to the user ratings endpoint
+      const response = await api.post(`/api/users/${userId}/ratings`, data);
+      console.log('User review response:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('User rating update failed:', error);
+      if (error.response) {
+        return error.response.data;
+      }
+      return { success: false, message: "Failed to update user rating" };
     }
   },
 };

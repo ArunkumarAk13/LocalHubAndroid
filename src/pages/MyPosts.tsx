@@ -234,10 +234,23 @@ const MyPosts: React.FC = () => {
       setIsRatingDialogOpen(false);
       
       // Show loading indicator
-      const loadingToast = toast.loading("Processing your purchase...");
+      const loadingToast = toast.loading("Processing your purchase and rating...");
       
       try {
-        // Mark the post as purchased with the selected seller and rating
+        // Step 1: Try to create a direct seller rating first
+        try {
+          const ratingResponse = await ratingsAPI.createSellerRating(
+            selectedSeller.id, 
+            selectedPostId,
+            rating
+          );
+          console.log('Direct seller rating response:', ratingResponse);
+        } catch (ratingError) {
+          console.error('Error creating direct seller rating:', ratingError);
+          // Continue with the process even if this fails
+        }
+
+        // Step 2: Mark the post as purchased with the selected seller and rating
         const purchaseResponse = await postsAPI.markAsPurchased(
           selectedPostId, 
           selectedSeller.id,
@@ -256,39 +269,32 @@ const MyPosts: React.FC = () => {
         ));
         
         toast.dismiss(loadingToast);
-        toast.success("Post marked as purchased successfully");
+        toast.success("Post marked as purchased and seller rated!");
+        toast.success(`You gave ${selectedSeller.name} a ${rating}-star rating`);
         
-        // Immediately show a message about the rating that was given
-        toast(`You gave ${selectedSeller.name} a ${rating}-star rating`);
-        
-        // The backend needs time to process the rating update
-        // Wait a bit longer to fetch the updated profile data
+        // Wait a bit and then fetch the updated user profile
         setTimeout(async () => {
           try {
-            // Use the API module instead of direct fetch to avoid CORS issues
-            const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
+            // Add a direct user review as a final attempt to ensure rating is saved
+            try {
+              await usersAPI.addUserReview(
+                selectedSeller.id,
+                rating,
+                `Rating from purchase of post ${selectedPostId}`
+              );
+            } catch (reviewError) {
+              console.error('Error adding user review:', reviewError);
+            }
             
-            if (userProfileResponse.success && userProfileResponse.user) {
-              console.log('Updated seller profile data:', userProfileResponse.user);
-              
-              // Parse rating value safely
-              let numericRating = 0;
-              if (userProfileResponse.user.rating !== undefined) {
-                numericRating = typeof userProfileResponse.user.rating === 'string' 
-                  ? parseFloat(userProfileResponse.user.rating) 
-                  : userProfileResponse.user.rating;
-              }
-              
-              if (!isNaN(numericRating)) {
-                toast(`${selectedSeller.name}'s updated profile rating: ${numericRating.toFixed(1)} stars`);
-              }
+            // Check if profile was updated
+            const userProfile = await usersAPI.getUserProfile(selectedSeller.id);
+            if (userProfile.success && userProfile.user) {
+              console.log('Updated seller profile:', userProfile.user);
             }
           } catch (error) {
             console.error('Error fetching updated profile:', error);
-            // Fallback message if we can't get the updated rating
-            toast(`Rating submitted. Visit ${selectedSeller.name}'s profile to see their updated rating.`);
           }
-        }, 3000); // Wait 3 seconds before fetching updated profile
+        }, 2000);
         
       } catch (error: any) {
         console.error("Error processing purchase:", error);
