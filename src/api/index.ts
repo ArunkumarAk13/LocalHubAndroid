@@ -66,8 +66,25 @@ api.interceptors.response.use(
 // Authentication API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    const response = await api.post('/api/auth/login', { email, password });
-    return response.data;
+    try {
+      const response = await api.post('/api/auth/login', { email, password });
+      return response.data;
+    } catch (error: any) {
+      console.error("Login API error:", error.response || error);
+      
+      // Format error response
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || "Invalid email or password"
+        };
+      }
+      
+      return {
+        success: false,
+        message: "Connection error. Please check your internet connection."
+      };
+    }
   },
   register: async (name: string, email: string, password: string, phoneNumber: string) => {
     const response = await api.post('/api/auth/register', { name, email, password, phoneNumber });
