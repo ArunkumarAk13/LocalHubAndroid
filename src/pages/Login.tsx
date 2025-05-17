@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Define the form schema
 const formSchema = z.object({
@@ -27,6 +28,7 @@ const formSchema = z.object({
 const Login = () => {
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -39,7 +41,14 @@ const Login = () => {
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    await login(values.email, values.password);
+    setLoginError(null); // Clear previous errors
+    const result = await login(values.email, values.password);
+    if (!result) {
+      setLoginError("Phone number or password is incorrect");
+      // Keep the form's error state
+      form.setError("email", { type: "manual" });
+      form.setError("password", { type: "manual" });
+    }
   };
 
   return (
@@ -52,6 +61,13 @@ const Login = () => {
         
         <Card className="border-none shadow-lg">
           <CardContent className="pt-6">
+            {loginError && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{loginError}</AlertDescription>
+              </Alert>
+            )}
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
@@ -67,7 +83,7 @@ const Login = () => {
                           </div>
                           <Input 
                             placeholder="email@example.com" 
-                            className="pl-10 h-12 text-base" 
+                            className={`pl-10 h-12 text-base ${loginError ? "border-destructive focus-visible:ring-destructive" : ""}`} 
                             {...field} 
                           />
                         </div>
@@ -90,7 +106,7 @@ const Login = () => {
                           <Input 
                             type={showPassword ? "text" : "password"}
                             placeholder="••••••••" 
-                            className="pl-10 h-12 text-base" 
+                            className={`pl-10 h-12 text-base ${loginError ? "border-destructive focus-visible:ring-destructive" : ""}`} 
                             {...field} 
                           />
                           <Button
