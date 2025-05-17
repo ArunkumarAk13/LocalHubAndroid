@@ -231,32 +231,18 @@ const MyPosts: React.FC = () => {
         return;
       }
 
-      console.log("User submitted rating:", rating, "for seller ID:", selectedSeller.id);
+      console.log("User submitted rating:", rating);
       
       setIsRatingDialogOpen(false);
       
       // Show loading indicator
       toast.loading("Processing your purchase...");
       
-      // First, add rating for the post/seller
-      const ratingResponse = await ratingsAPI.addRating(
-        selectedPostId,
-        rating,
-        `Rating for purchase from ${selectedSeller.name}`
-      );
-      
-      if (!ratingResponse.success) {
-        console.error("Failed to add rating:", ratingResponse);
-        toast.error("Failed to add rating");
-        toast.dismiss();
-        return;
-      }
-      
       // Mark the post as purchased with the selected seller and rating
       const response = await postsAPI.markAsPurchased(
         selectedPostId, 
         selectedSeller.id,
-        rating
+        rating // Pass the selected rating
       );
       
       if (response.success) {

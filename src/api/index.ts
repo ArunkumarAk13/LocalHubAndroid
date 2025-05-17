@@ -24,7 +24,7 @@ api.interceptors.request.use(
       
       // Only log in development
       if (process.env.NODE_ENV !== 'production') {
-        console.log('Making request to:', config.baseURL + config.url);
+      console.log('Making request to:', config.baseURL + config.url);
       }
     } else {
       console.warn('No token found in localStorage for request to:', config.baseURL + config.url);
