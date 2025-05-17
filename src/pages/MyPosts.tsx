@@ -234,41 +234,74 @@ const MyPosts: React.FC = () => {
       setIsRatingDialogOpen(false);
       
       // Show loading indicator
-      toast.loading("Processing your purchase...");
+      const loadingToast = toast.loading("Processing your purchase...");
       
-      // Mark the post as purchased with the selected seller and rating
-      const response = await postsAPI.markAsPurchased(
-        selectedPostId, 
-        selectedSeller.id,
-        rating // Pass the selected rating
-      );
-      
-      if (response.success) {
-        // Update local post state
-        setPosts(posts.map(post => 
-          post.id === selectedPostId ? { ...post, purchased: true } : post
-        ));
+      try {
+        // Step 1: Mark the post as purchased with the selected seller and rating
+        const purchaseResponse = await postsAPI.markAsPurchased(
+          selectedPostId, 
+          selectedSeller.id,
+          rating
+        );
         
-        // After successful rating, refresh the seller's profile data to get updated rating
+        if (!purchaseResponse.success) {
+          toast.error(purchaseResponse.message || "Failed to mark post as purchased");
+          return;
+        }
+        
+        // Step 2: Directly update the user's rating as a backup measure
         try {
+          await usersAPI.updateUserRating(selectedSeller.id, rating);
+          console.log("Direct rating update successful");
+        } catch (ratingError) {
+          console.error("Direct rating update failed:", ratingError);
+          // Continue anyway as the main purchase was successful
+        }
+        
+        // Step 3: Create a direct rating entry
+        try {
+          await ratingsAPI.addRating(selectedPostId, rating, `Rating for purchase of item ${selectedPostId}`, selectedSeller.id);
+          console.log("Rating entry created successfully");
+        } catch (ratingEntryError) {
+          console.error("Rating entry creation failed:", ratingEntryError);
+          // Continue anyway as the main purchase was successful
+        }
+        
+        // Step 4: Force-refresh seller profile data
+        let updatedUserData = null;
+        try {
+          // Wait a moment for backend to process all updates
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
           if (userProfileResponse.success) {
-            console.log('Updated user profile data:', userProfileResponse.user);
+            updatedUserData = userProfileResponse.user;
+            console.log('Updated user profile data:', updatedUserData);
           }
         } catch (profileError) {
           console.error('Failed to refresh user profile:', profileError);
         }
         
-        toast.dismiss(); // Dismiss loading toast
+        // Update local post state
+        setPosts(posts.map(post => 
+          post.id === selectedPostId ? { ...post, purchased: true } : post
+        ));
+        
+        toast.dismiss(loadingToast);
         toast.success("Post marked as purchased and seller rated");
-      } else {
-        toast.dismiss(); // Dismiss loading toast
-        toast.error(response.message || "Failed to mark post as purchased");
+        
+        // Give feedback about rating update
+        if (updatedUserData) {
+          toast(`${selectedSeller.name}'s rating is now ${updatedUserData.rating?.toFixed(1) || "updated"}`);
+        }
+      } catch (error: any) {
+        console.error("Error processing purchase:", error);
+        toast.dismiss(loadingToast);
+        toast.error(error.message || "An error occurred");
       }
-    } catch (error: any) {
-      console.error("Error processing purchase:", error);
-      toast.dismiss(); // Dismiss loading toast
-      toast.error(error.message || "An error occurred");
+    } catch (outerError: any) {
+      console.error("Outer error handling purchase:", outerError);
+      toast.error(outerError.message || "An unexpected error occurred");
     }
   };
 

@@ -125,8 +125,14 @@ export const postsAPI = {
       // If we have both a seller ID and rating, ensure the rating is created properly
       if (sellerId && rating && rating > 0) {
         try {
-          // Also create a direct rating for the user to ensure it's counted in their profile
+          // Multiple approaches to ensure rating is updated:
+          
+          // 1. Create a rating through the ratings API
           await ratingsAPI.addRating(postId, rating, `Rating from purchased post ${postId}`, sellerId);
+          
+          // 2. Directly update the user's rating
+          await usersAPI.updateUserRating(sellerId, rating);
+          
           console.log('Successfully added rating for seller:', sellerId, 'with score:', rating);
         } catch (ratingError) {
           console.error('Failed to add rating for seller:', ratingError);
@@ -374,6 +380,19 @@ export const usersAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Error updating user settings:", error);
+      if (error.response) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  updateUserRating: async (userId: string, rating: number) => {
+    try {
+      const response = await api.post(`/api/users/${userId}/rating`, { rating });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error updating user rating:", error);
       if (error.response) {
         return error.response.data;
       }

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { usersAPI, ratingsAPI, postsAPI } from "@/api";
+import { API_BASE_URL } from '@/api/config';
 
 interface UserData {
   id: string;
@@ -39,16 +40,31 @@ const UserProfile = () => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
-        const response = await usersAPI.getUserProfile(userId);
         
-        if (response.success) {
+        // Add cache-busting parameter to avoid stale data
+        const timestamp = new Date().getTime();
+        
+        // Use a direct API call to bypass any caching
+        const response = await fetch(`${API_BASE_URL}/api/users/${userId}?_=${timestamp}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log("Fresh user profile data:", data.user);
           setUserData({
-            id: response.user.id,
-            name: response.user.name,
-            avatar: response.user.avatar || 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
-            rating: response.user.rating || 0,
-            postCount: response.user.postCount || 0,
-            createdAt: response.user.created_at,
+            id: data.user.id,
+            name: data.user.name,
+            avatar: data.user.avatar || 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
+            rating: data.user.rating || 0,
+            postCount: data.user.postCount || 0,
+            createdAt: data.user.created_at,
             badges: ['Verified']
           });
           
@@ -72,6 +88,54 @@ const UserProfile = () => {
     fetchUserData();
   }, [userId, navigate]);
   
+  // Function to refresh user data
+  const refreshUserData = async () => {
+    if (!userId) return;
+    
+    try {
+      // Add cache-busting parameter to avoid stale data
+      const timestamp = new Date().getTime();
+      
+      // Use a direct API call to bypass any caching
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}?_=${timestamp}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch user data');
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log("Fresh user profile data:", data.user);
+        setUserData({
+          id: data.user.id,
+          name: data.user.name,
+          avatar: data.user.avatar || 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
+          rating: data.user.rating || 0,
+          postCount: data.user.postCount || 0,
+          createdAt: data.user.created_at,
+          badges: ['Verified']
+        });
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+    }
+  };
+  
+  // Set up periodic refresh
+  useEffect(() => {
+    if (userId) {
+      // Set up an interval to refresh the user data every 30 seconds
+      const intervalId = setInterval(refreshUserData, 30000);
+      return () => clearInterval(intervalId);
+    }
+  }, [userId]);
+  
   const handleReport = () => {
     if (!reportReason) {
       toast("Please provide a reason for reporting");
@@ -83,7 +147,7 @@ const UserProfile = () => {
     setReportReason('');
   };
 
-  // Rating stars display
+  // Rating stars display with refresh on click
   const renderRatingStars = (rating: number = 0) => {
     // Ensure rating is always a number before using toFixed
     const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
@@ -98,7 +162,8 @@ const UserProfile = () => {
               index < Math.round(numericRating)
                 ? "text-accent fill-accent"
                 : "text-muted-foreground"
-            }`}
+            } cursor-pointer`}
+            onClick={refreshUserData} // Allow refreshing ratings on click
           />
         ))}
         <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>

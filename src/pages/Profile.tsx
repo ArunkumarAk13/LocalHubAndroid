@@ -40,8 +40,13 @@ const Profile = () => {
   
   // Rating stars display
   const renderRatingStars = (rating: number = 0) => {
+    // Get the most up-to-date rating from user object if available
+    const currentRating = user?.rating !== undefined ? user.rating : rating;
+    
     // Ensure rating is always a number before using toFixed
-    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
+    const numericRating = typeof currentRating === 'number' ? currentRating : Number(currentRating) || 0;
+    
+    console.log('Rendering rating stars with value:', numericRating);
     
     return (
       <div className="flex items-center">
@@ -54,6 +59,7 @@ const Profile = () => {
                 ? "text-accent fill-accent"
                 : "text-muted-foreground"
             }`}
+            onClick={refreshUserRating} // Allow refreshing ratings on click
           />
         ))}
         <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
@@ -193,6 +199,44 @@ const Profile = () => {
     if (url.startsWith('http')) return url;
     return `${API_BASE_URL}${url}`;
   };
+
+  // Add a function to refresh user rating data
+  const refreshUserRating = async () => {
+    if (user) {
+      try {
+        // Add cache-busting parameter
+        const timestamp = new Date().getTime();
+        const response = await fetch(`${API_BASE_URL}/api/users/${user.id}?_=${timestamp}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          }
+        });
+        
+        const data = await response.json();
+        if (data.success && data.user && data.user.rating !== undefined) {
+          console.log('Refreshed user rating:', data.user.rating);
+          // Update the user's rating in the auth context
+          user.rating = data.user.rating;
+          // Force a re-render
+          setMyPosts([...myPosts]);
+        }
+      } catch (error) {
+        console.error('Failed to refresh user rating:', error);
+      }
+    }
+  };
+
+  // Refresh rating data when component mounts
+  useEffect(() => {
+    refreshUserRating();
+    // Set up an interval to periodically refresh the rating
+    const refreshInterval = setInterval(refreshUserRating, 60000); // Refresh every minute
+    
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [user?.id]);
 
   return (
     <div className="pb-20">
