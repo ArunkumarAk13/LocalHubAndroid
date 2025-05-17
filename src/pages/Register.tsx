@@ -231,28 +231,52 @@ const Register = () => {
                       </FormControl>
                       <div className="grid grid-cols-2 gap-2 mt-2">
                         <div className="flex items-center text-xs">
-                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.minLength ? 'bg-green-500' : 'bg-gray-300'}`}>
-                            {passwordRequirements.minLength && <span className="text-white">✓</span>}
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.minLength ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {passwordRequirements.minLength ? (
+                              <span className="text-white text-[10px]">✓</span>
+                            ) : (
+                              <span className="text-white text-[10px]">✕</span>
+                            )}
                           </div>
-                          <span>Minimum 8 characters</span>
+                          <span className={passwordRequirements.minLength ? 'text-green-700' : 'text-red-700'}>
+                            Minimum 8 characters
+                          </span>
                         </div>
                         <div className="flex items-center text-xs">
-                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasUppercase ? 'bg-green-500' : 'bg-gray-300'}`}>
-                            {passwordRequirements.hasUppercase && <span className="text-white">✓</span>}
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasUppercase ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {passwordRequirements.hasUppercase ? (
+                              <span className="text-white text-[10px]">✓</span>
+                            ) : (
+                              <span className="text-white text-[10px]">✕</span>
+                            )}
                           </div>
-                          <span>One uppercase letter</span>
+                          <span className={passwordRequirements.hasUppercase ? 'text-green-700' : 'text-red-700'}>
+                            One uppercase letter
+                          </span>
                         </div>
                         <div className="flex items-center text-xs">
-                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasNumber ? 'bg-green-500' : 'bg-gray-300'}`}>
-                            {passwordRequirements.hasNumber && <span className="text-white">✓</span>}
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasNumber ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {passwordRequirements.hasNumber ? (
+                              <span className="text-white text-[10px]">✓</span>
+                            ) : (
+                              <span className="text-white text-[10px]">✕</span>
+                            )}
                           </div>
-                          <span>One number</span>
+                          <span className={passwordRequirements.hasNumber ? 'text-green-700' : 'text-red-700'}>
+                            One number
+                          </span>
                         </div>
                         <div className="flex items-center text-xs">
-                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasSymbol ? 'bg-green-500' : 'bg-gray-300'}`}>
-                            {passwordRequirements.hasSymbol && <span className="text-white">✓</span>}
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasSymbol ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {passwordRequirements.hasSymbol ? (
+                              <span className="text-white text-[10px]">✓</span>
+                            ) : (
+                              <span className="text-white text-[10px]">✕</span>
+                            )}
                           </div>
-                          <span>One symbol</span>
+                          <span className={passwordRequirements.hasSymbol ? 'text-green-700' : 'text-red-700'}>
+                            One symbol
+                          </span>
                         </div>
                       </div>
                       <FormMessage />
