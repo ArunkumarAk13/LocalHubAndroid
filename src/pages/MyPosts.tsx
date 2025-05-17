@@ -236,58 +236,28 @@ const MyPosts: React.FC = () => {
       // Show loading indicator
       toast.loading("Processing your purchase...");
       
-      // Mark the post as purchased first
-      const purchaseResponse = await postsAPI.markAsPurchased(
+      // Mark the post as purchased with the selected seller and rating
+      const response = await postsAPI.markAsPurchased(
         selectedPostId, 
         selectedSeller.id,
-        rating
+        rating // Pass the selected rating
       );
       
-      if (!purchaseResponse.success) {
-        toast.dismiss();
-        toast.error(purchaseResponse.message || "Failed to mark post as purchased");
-        return;
-      }
-
-      // Update local posts state
-      setPosts(posts.map(post => 
-        post.id === selectedPostId ? { ...post, purchased: true } : post
-      ));
-      
-      // Try to find a post from the seller to add a rating
-      try {
-        const sellerPostsResponse = await postsAPI.getUserPosts(selectedSeller.id);
+      if (response.success) {
+        // Update local post state
+        setPosts(posts.map(post => 
+          post.id === selectedPostId ? { ...post, purchased: true } : post
+        ));
         
-        if (sellerPostsResponse.success && 
-            sellerPostsResponse.posts && 
-            sellerPostsResponse.posts.length > 0) {
-          
-          // Use the first post from the seller for rating
-          const sellerPostId = sellerPostsResponse.posts[0].id;
-          
-          // Add a rating for the seller's post
-          await ratingsAPI.addRating(
-            sellerPostId,
-            rating,
-            `Purchase rating for ${selectedSeller.name}`
-          );
-          
-          toast.dismiss();
-          toast.success("Post marked as purchased and seller rated");
-        } else {
-          // Successfully purchased but couldn't rate the seller
-          toast.dismiss();
-          toast.success("Post marked as purchased, but the seller couldn't be rated (no posts found)");
-        }
-      } catch (ratingError) {
-        console.error("Error adding rating:", ratingError);
-        // Still success for the purchase, even if rating failed
-        toast.dismiss();
-        toast.success("Post marked as purchased, but the seller couldn't be rated");
+        toast.dismiss(); // Dismiss loading toast
+        toast.success("Post marked as purchased and seller rated");
+      } else {
+        toast.dismiss(); // Dismiss loading toast
+        toast.error(response.message || "Failed to mark post as purchased");
       }
     } catch (error: any) {
       console.error("Error processing purchase:", error);
-      toast.dismiss();
+      toast.dismiss(); // Dismiss loading toast
       toast.error(error.message || "An error occurred");
     }
   };
