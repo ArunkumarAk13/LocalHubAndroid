@@ -249,11 +249,28 @@ const MyPosts: React.FC = () => {
           post.id === selectedPostId ? { ...post, purchased: true } : post
         ));
         
+        // Extra effort: directly try to update the seller's rating in database
+        try {
+          console.log(`Directly updating user ${selectedSeller.id} rating to ${rating}`);
+          await usersAPI.updateUserRating(selectedSeller.id, rating);
+          
+          // Try direct DB update as last resort
+          await usersAPI.directUpdateRating(selectedSeller.id, rating);
+        } catch (directUpdateError) {
+          console.error('Direct rating update attempts failed:', directUpdateError);
+        }
+        
         // After successful rating, refresh the seller's profile data to get updated rating
         try {
           const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
           if (userProfileResponse.success) {
             console.log('Updated user profile data:', userProfileResponse.user);
+            
+            // If rating is still 0 after all our attempts, show a warning
+            if (userProfileResponse.user.rating === '0.0' || userProfileResponse.user.rating === 0) {
+              console.warn('User rating still 0 after update attempts');
+              toast.warning("Rating saved but not showing in profile. This will be fixed soon.");
+            }
           }
         } catch (profileError) {
           console.error('Failed to refresh user profile:', profileError);

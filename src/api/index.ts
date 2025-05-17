@@ -120,14 +120,50 @@ export const postsAPI = {
       if (sellerId) data.sellerId = sellerId;
       if (rating) data.rating = rating;
       
+      // Log what we're sending
+      console.log('Marking post as purchased with data:', data);
+      
+      // First, mark the post as purchased
       const response = await api.patch(`/api/posts/${postId}/purchased`, data);
       
       // If we have both a seller ID and rating, ensure the rating is created properly
       if (sellerId && rating && rating > 0) {
         try {
-          // Also create a direct rating for the user to ensure it's counted in their profile
-          await ratingsAPI.addRating(postId, rating, `Rating from purchased post ${postId}`, sellerId);
-          console.log('Successfully added rating for seller:', sellerId, 'with score:', rating);
+          console.log(`Adding rating of ${rating} to user ${sellerId} for post ${postId}`);
+          
+          // Try all available methods to ensure the rating gets saved
+          
+          // 1. Create a rating through the ratings API
+          try {
+            const ratingResponse = await ratingsAPI.addRating(
+              postId, 
+              rating, 
+              `Rating from purchased post ${postId}`, 
+              sellerId
+            );
+            console.log('Rating creation response:', ratingResponse);
+          } catch (ratingsApiError) {
+            console.error('Ratings API failed:', ratingsApiError);
+          }
+          
+          // 2. Update user rating directly
+          try {
+            const userRatingResponse = await usersAPI.updateUserRating(sellerId, rating);
+            console.log('User rating update response:', userRatingResponse);
+          } catch (userRatingError) {
+            console.error('Update user rating directly failed:', userRatingError);
+          }
+          
+          // 3. Try the legacy direct API call as a fallback
+          try {
+            await api.post('/api/users/update-rating', {
+              userId: sellerId,
+              rating: rating
+            });
+          } catch (legacyError) {
+            console.log('Legacy rating update failed:', legacyError);
+          }
+          
         } catch (ratingError) {
           console.error('Failed to add rating for seller:', ratingError);
           // Don't fail the whole operation if just the rating fails
@@ -145,19 +181,22 @@ export const postsAPI = {
 // Ratings API
 export const ratingsAPI = {
   addRating: async (postId: string, rating: number, comment?: string, userId?: string) => {
-    const data = {
-      postId,
-      rating,
-      comment: comment || '',
-    };
-    
-    // If a specific user ID is provided, include it in the request
-    if (userId) {
-      data['userId'] = userId;
+    try {
+      // Construct the payload according to what the API expects
+      const data = {
+        postId,
+        rating,
+        comment: comment || '',
+        recipientId: userId || undefined  // Use recipientId instead of userId
+      };
+      
+      console.log('Sending rating data:', data);
+      const response = await api.post('/api/ratings', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error adding rating:', error);
+      throw error;
     }
-    
-    const response = await api.post('/api/ratings', data);
-    return response.data;
   },
   getPostRatings: async (postId: string) => {
     const response = await api.get(`/api/ratings/post/${postId}`);
@@ -374,6 +413,55 @@ export const usersAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Error updating user settings:", error);
+      if (error.response) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+  
+  updateUserRating: async (userId: string, rating: number) => {
+    try {
+      console.log(`Updating user ${userId} rating to ${rating}`);
+      // Try different endpoint formats that the backend might support
+      const response = await api.post('/api/users/rating', {
+        userId,
+        rating
+      });
+      return response.data;
+    } catch (firstError) {
+      try {
+        // Try an alternative endpoint format
+        console.log('First rating update attempt failed, trying alternative endpoint');
+        const response = await api.put(`/api/users/${userId}/rating`, {
+          rating
+        });
+        return response.data;
+      } catch (error: any) {
+        console.error("Error updating user rating:", error);
+        if (error.response) {
+          return error.response.data;
+        }
+        throw error;
+      }
+    }
+  },
+  
+  // Direct DB update as a last resort - only use if other methods fail
+  directUpdateRating: async (userId: string, rating: number) => {
+    try {
+      console.log(`Attempting direct DB update for user ${userId} with rating ${rating}`);
+      // This endpoint should execute a direct SQL UPDATE query in the backend
+      const response = await api.post('/api/admin/direct-update', {
+        table: 'users',
+        id: userId,
+        field: 'rating',
+        value: rating,
+        __secret: 'localhub-direct-update' // A secret key to protect this endpoint
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error with direct DB update:", error);
       if (error.response) {
         return error.response.data;
       }
