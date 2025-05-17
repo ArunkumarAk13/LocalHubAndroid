@@ -364,4 +364,7 @@ const Chat = () => {
   );
 };
 
-export default Chat; 
+export default Chat;
+
+// NOTE: Navigation component is intentionally excluded from Chat page
+// to provide a cleaner, more focused messaging experience. 

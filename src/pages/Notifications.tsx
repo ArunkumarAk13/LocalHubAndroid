@@ -91,7 +91,7 @@ const Notifications: React.FC = () => {
 
   return (
     <div className="h-[90vh] bg-background overflow-y-auto">
-      <div className="w-full max-w-5xl mx-auto px-3 sm:px-4 py-4">
+      <div className="w-full max-w-5xl mx-auto">
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold">Notifications</CardTitle>

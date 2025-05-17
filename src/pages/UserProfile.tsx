@@ -124,7 +124,7 @@ const UserProfile = () => {
 
   return (
     <div className="pb-20">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
         <Card className="shadow-lg">
           <CardHeader className="flex flex-col items-center text-center border-b pb-6">
             <div className="h-24 w-24 rounded-full overflow-hidden mb-4">

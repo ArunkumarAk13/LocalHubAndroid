@@ -34,9 +34,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  const isChatPage = location.pathname.startsWith("/chat");
+  const hideNavbar = isAuthPage || isChatPage;
+  
   return (
     <>
-      <Navbar />
+      {!hideNavbar && <Navbar />}
       <main className={isAuthPage ? "h-screen" : "container py-0 px-0"}>
         <Routes>
           <Route path="/login" element={<Login />} />
