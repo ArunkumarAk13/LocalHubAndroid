@@ -114,20 +114,49 @@ export const postsAPI = {
     return response.data;
   },
   markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
-    const data: { sellerId?: string; rating?: number } = {};
-    
-    if (sellerId) data.sellerId = sellerId;
-    if (rating) data.rating = rating;
-    
-    const response = await api.patch(`/api/posts/${postId}/purchased`, data);
-    return response.data;
+    try {
+      const data: { sellerId?: string; rating?: number } = {};
+      
+      if (sellerId) data.sellerId = sellerId;
+      if (rating) data.rating = rating;
+      
+      const response = await api.patch(`/api/posts/${postId}/purchased`, data);
+      
+      // If we have both a seller ID and rating, ensure the rating is created properly
+      if (sellerId && rating && rating > 0) {
+        try {
+          // Also create a direct rating for the user to ensure it's counted in their profile
+          await ratingsAPI.addRating(postId, rating, `Rating from purchased post ${postId}`, sellerId);
+          console.log('Successfully added rating for seller:', sellerId, 'with score:', rating);
+        } catch (ratingError) {
+          console.error('Failed to add rating for seller:', ratingError);
+          // Don't fail the whole operation if just the rating fails
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error("Error marking post as purchased:", error);
+      throw error;
+    }
   },
 };
 
 // Ratings API
 export const ratingsAPI = {
-  addRating: async (postId: string, rating: number, comment?: string) => {
-    const response = await api.post('/api/ratings', { postId, rating, comment });
+  addRating: async (postId: string, rating: number, comment?: string, userId?: string) => {
+    const data = {
+      postId,
+      rating,
+      comment: comment || '',
+    };
+    
+    // If a specific user ID is provided, include it in the request
+    if (userId) {
+      data['userId'] = userId;
+    }
+    
+    const response = await api.post('/api/ratings', data);
     return response.data;
   },
   getPostRatings: async (postId: string) => {

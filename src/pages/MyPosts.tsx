@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ChevronLeft, Trash, CheckCircle, Loader2, Star } from 'lucide-react';
-import { postsAPI, chatsAPI, ratingsAPI } from '@/api';
+import { postsAPI, chatsAPI, ratingsAPI, usersAPI } from '@/api';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/api/config';
 
@@ -248,6 +248,16 @@ const MyPosts: React.FC = () => {
         setPosts(posts.map(post => 
           post.id === selectedPostId ? { ...post, purchased: true } : post
         ));
+        
+        // After successful rating, refresh the seller's profile data to get updated rating
+        try {
+          const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
+          if (userProfileResponse.success) {
+            console.log('Updated user profile data:', userProfileResponse.user);
+          }
+        } catch (profileError) {
+          console.error('Failed to refresh user profile:', profileError);
+        }
         
         toast.dismiss(); // Dismiss loading toast
         toast.success("Post marked as purchased and seller rated");
