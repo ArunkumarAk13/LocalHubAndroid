@@ -34,7 +34,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
-  const isChatPage = location.pathname === "/chat" || location.pathname.startsWith("/chat/");
   return (
     <>
       <Navbar />
