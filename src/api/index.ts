@@ -3,7 +3,7 @@ import { API_BASE_URL } from './config';
 import { Capacitor } from '@capacitor/core';
 
 // Create an axios instance with the correct baseURL
-const baseURL = `${API_BASE_URL}/api`;
+const baseURL = API_BASE_URL;
 
 const api = axios.create({
   baseURL,
@@ -66,15 +66,15 @@ api.interceptors.response.use(
 // Authentication API
 export const authAPI = {
   login: async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await api.post('/api/auth/login', { email, password });
     return response.data;
   },
   register: async (name: string, email: string, password: string, phoneNumber: string) => {
-    const response = await api.post('/auth/register', { name, email, password, phoneNumber });
+    const response = await api.post('/api/auth/register', { name, email, password, phoneNumber });
     return response.data;
   },
   getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/api/auth/me');
     return response.data;
   },
 };
@@ -82,19 +82,19 @@ export const authAPI = {
 // Posts API
 export const postsAPI = {
   getAllPosts: async (filters?: { category?: string; search?: string }) => {
-    const response = await api.get('/posts', { params: filters });
+    const response = await api.get('/api/posts', { params: filters });
     return response.data;
   },
   getPostById: async (postId: string) => {
-    const response = await api.get(`/posts/${postId}`);
+    const response = await api.get(`/api/posts/${postId}`);
     return response.data;
   },
   getUserPosts: async (userId: string) => {
-    const response = await api.get(`/posts/user/${userId}`);
+    const response = await api.get(`/api/posts/user/${userId}`);
     return response.data;
   },
   createPost: async (postData: FormData) => {
-    const response = await api.post('/posts', postData, {
+    const response = await api.post('/api/posts', postData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -102,7 +102,7 @@ export const postsAPI = {
     return response.data;
   },
   updatePost: async (postId: string, postData: FormData) => {
-    const response = await api.put(`/posts/${postId}`, postData, {
+    const response = await api.put(`/api/posts/${postId}`, postData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -110,11 +110,11 @@ export const postsAPI = {
     return response.data;
   },
   deletePost: async (postId: string) => {
-    const response = await api.delete(`/posts/${postId}`);
+    const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
   markAsPurchased: async (postId: string) => {
-    const response = await api.patch(`/posts/${postId}/purchased`);
+    const response = await api.patch(`/api/posts/${postId}/purchased`);
     return response.data;
   },
 };
@@ -122,11 +122,11 @@ export const postsAPI = {
 // Ratings API
 export const ratingsAPI = {
   addRating: async (postId: string, rating: number, comment?: string) => {
-    const response = await api.post('/ratings', { postId, rating, comment });
+    const response = await api.post('/api/ratings', { postId, rating, comment });
     return response.data;
   },
   getPostRatings: async (postId: string) => {
-    const response = await api.get(`/ratings/post/${postId}`);
+    const response = await api.get(`/api/ratings/post/${postId}`);
     return response.data;
   },
 };
@@ -134,13 +134,13 @@ export const ratingsAPI = {
 // Users API
 export const usersAPI = {
   getUserProfile: async (userId: string) => {
-    const response = await api.get(`/users/${userId}`);
+    const response = await api.get(`/api/users/${userId}`);
     return response.data;
   },
   
   updateProfile: async (data: { name: string; avatar: string }) => {
     try {
-      const response = await api.put('/users/profile', data);
+      const response = await api.put('/api/users/profile', data);
       return response.data;
     } catch (error: any) {
       console.error("Error updating profile:", error);
@@ -153,7 +153,7 @@ export const usersAPI = {
   
   subscribeToCategory: async (categoryName: string) => {
     try {
-      const response = await api.post('/users/subscribe/category', { categoryName });
+      const response = await api.post('/api/users/subscribe/category', { categoryName });
       return response.data;
     } catch (error: any) {
       console.error("Error in subscribe category:", error);
@@ -166,7 +166,7 @@ export const usersAPI = {
   
   unsubscribeFromCategory: async (categoryName: string) => {
     try {
-      const response = await api.delete('/users/unsubscribe/category', {
+      const response = await api.delete('/api/users/unsubscribe/category', {
         data: { categoryName },
       });
       return response.data;
@@ -198,7 +198,7 @@ export const usersAPI = {
       
       // Add a random query parameter to prevent caching
       const cacheBuster = new Date().getTime();
-      const response = await api.get(`/users/subscribed-categories?_=${cacheBuster}`);
+      const response = await api.get(`/api/users/subscribed-categories?_=${cacheBuster}`);
       console.log("API received subscribed categories:", response.data);
       
       // Store successfully fetched categories in localStorage with a user identifier
@@ -237,7 +237,7 @@ export const usersAPI = {
       
       // Add a random query parameter to prevent caching
       const cacheBuster = new Date().getTime();
-      const response = await api.get(`/users/notifications?_=${cacheBuster}`);
+      const response = await api.get(`/api/users/notifications?_=${cacheBuster}`);
       console.log("API response for notifications:", response.data);
       
       // Store successfully fetched notifications in localStorage for resilience
@@ -260,7 +260,7 @@ export const usersAPI = {
   
   markNotificationAsRead: async (notificationId: string) => {
     try {
-      const response = await api.put(`/users/notifications/${notificationId}/read`);
+      const response = await api.put(`/api/users/notifications/${notificationId}/read`);
       
       // Update the cached notifications if the API call was successful
       if (response.data.success) {
@@ -292,7 +292,7 @@ export const usersAPI = {
 
   markAllNotificationsAsRead: async () => {
     try {
-      const response = await api.put('/users/notifications/read-all');
+      const response = await api.put('/api/users/notifications/read-all');
       
       // Update the cached notifications if the API call was successful
       if (response.data.success) {
@@ -323,7 +323,7 @@ export const usersAPI = {
 
   getUserSettings: async () => {
     try {
-      const response = await api.get('/users/settings');
+      const response = await api.get('/api/users/settings');
       return response.data;
     } catch (error: any) {
       console.error("Error fetching user settings:", error);
@@ -336,7 +336,7 @@ export const usersAPI = {
 
   updateUserSettings: async (settings: { whatsappEnabled: boolean }) => {
     try {
-      const response = await api.put('/users/settings', settings);
+      const response = await api.put('/api/users/settings', settings);
       return response.data;
     } catch (error: any) {
       console.error("Error updating user settings:", error);
