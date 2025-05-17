@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ChevronLeft, Trash, CheckCircle, Loader2, Star } from 'lucide-react';
-import { postsAPI, chatsAPI, ratingsAPI, usersAPI } from '@/api';
+import { postsAPI, chatsAPI, ratingsAPI } from '@/api';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/api/config';
 
@@ -53,7 +53,7 @@ const MyPosts: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Dialog states
   const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
@@ -235,12 +235,25 @@ const MyPosts: React.FC = () => {
       
       // Show loading indicator
       toast.loading("Processing your purchase...");
+
+      // First, add a rating for the seller using ratings API
+      const ratingResponse = await ratingsAPI.addRating(
+        selectedPostId,
+        rating, 
+        `Purchase rating for ${selectedSeller.name}`
+      );
       
-      // Mark the post as purchased with the selected seller and rating
+      if (!ratingResponse.success) {
+        toast.dismiss();
+        toast.error(ratingResponse.message || "Failed to add rating");
+        return;
+      }
+      
+      // Then mark the post as purchased
       const response = await postsAPI.markAsPurchased(
         selectedPostId, 
         selectedSeller.id,
-        rating // Pass the selected rating
+        rating
       );
       
       if (response.success) {
@@ -248,33 +261,6 @@ const MyPosts: React.FC = () => {
         setPosts(posts.map(post => 
           post.id === selectedPostId ? { ...post, purchased: true } : post
         ));
-        
-        // Extra effort: directly try to update the seller's rating in database
-        try {
-          console.log(`Directly updating user ${selectedSeller.id} rating to ${rating}`);
-          await usersAPI.updateUserRating(selectedSeller.id, rating);
-          
-          // Try direct DB update as last resort
-          await usersAPI.directUpdateRating(selectedSeller.id, rating);
-        } catch (directUpdateError) {
-          console.error('Direct rating update attempts failed:', directUpdateError);
-        }
-        
-        // After successful rating, refresh the seller's profile data to get updated rating
-        try {
-          const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
-          if (userProfileResponse.success) {
-            console.log('Updated user profile data:', userProfileResponse.user);
-            
-            // If rating is still 0 after all our attempts, show a warning
-            if (userProfileResponse.user.rating === '0.0' || userProfileResponse.user.rating === 0) {
-              console.warn('User rating still 0 after update attempts');
-              toast.warning("Rating saved but not showing in profile. This will be fixed soon.");
-            }
-          }
-        } catch (profileError) {
-          console.error('Failed to refresh user profile:', profileError);
-        }
         
         toast.dismiss(); // Dismiss loading toast
         toast.success("Post marked as purchased and seller rated");
