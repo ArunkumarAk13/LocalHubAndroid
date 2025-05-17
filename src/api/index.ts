@@ -115,25 +115,26 @@ export const postsAPI = {
   },
   markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
     try {
-      const data: { sellerId?: string; rating?: number } = {};
+      // Format data according to what the backend expects
+      const data: { 
+        sellerId?: string; 
+        seller_id?: string; 
+        rating?: number 
+      } = {};
       
-      if (sellerId) data.sellerId = sellerId;
+      // Try both formats to ensure compatibility
+      if (sellerId) {
+        data.sellerId = sellerId;
+        data.seller_id = sellerId; // Add snake_case version too
+      }
       if (rating) data.rating = rating;
       
+      console.log('Marking post as purchased with data:', data);
+      
       const response = await api.patch(`/api/posts/${postId}/purchased`, data);
+      console.log('Purchase response:', response.data);
       
-      // If we have both a seller ID and rating, ensure the rating is created properly
-      if (sellerId && rating && rating > 0) {
-        try {
-          // Create a rating through the ratings API
-          await ratingsAPI.addRating(postId, rating, `Rating from purchased post ${postId}`, sellerId);
-          console.log('Successfully added rating for seller:', sellerId, 'with score:', rating);
-        } catch (ratingError) {
-          console.error('Failed to add rating for seller:', ratingError);
-          // Don't fail the whole operation if just the rating fails
-        }
-      }
-      
+      // Don't try to create a separate rating - the backend already handles this
       return response.data;
     } catch (error) {
       console.error("Error marking post as purchased:", error);
@@ -146,10 +147,15 @@ export const postsAPI = {
 export const ratingsAPI = {
   addRating: async (postId: string, rating: number, comment?: string, userId?: string) => {
     try {
-      // The backend expects a specific format
+      // Log the request headers for debugging
+      console.log('Adding rating with token:', localStorage.getItem('token') ? 'Present' : 'Missing');
+      
+      // Try different parameter formats to see what the server accepts
       const data = {
-        post_id: postId, // Use snake_case to match backend
-        user_id: userId, // Use snake_case to match backend
+        post_id: postId, 
+        user_id: userId,
+        postId: postId,  // Try camelCase too
+        userId: userId,  // Try camelCase too
         rating: rating,
         comment: comment || ''
       };
@@ -157,19 +163,33 @@ export const ratingsAPI = {
       console.log('Sending rating data:', data);
       
       const response = await api.post('/api/ratings', data);
+      console.log('Rating creation response:', response.data);
       return response.data;
     } catch (error) {
+      // Log the complete error for debugging
       console.error("Error adding rating:", error);
+      console.error("Error response data:", error.response?.data);
+      
       // Return a structured error response
       return {
         success: false,
-        message: error.message || "Failed to add rating"
+        message: error.response?.data?.message || error.message || "Failed to add rating"
       };
     }
   },
+  
   getPostRatings: async (postId: string) => {
-    const response = await api.get(`/api/ratings/post/${postId}`);
-    return response.data;
+    try {
+      const response = await api.get(`/api/ratings/post/${postId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching post ratings:", error);
+      return {
+        success: false,
+        ratings: [],
+        message: error.response?.data?.message || "Failed to fetch ratings"
+      };
+    }
   },
 };
 

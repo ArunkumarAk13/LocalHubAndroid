@@ -237,7 +237,7 @@ const MyPosts: React.FC = () => {
       const loadingToast = toast.loading("Processing your purchase...");
       
       try {
-        // Step 1: Mark the post as purchased with the selected seller and rating
+        // Mark the post as purchased with the selected seller and rating
         const purchaseResponse = await postsAPI.markAsPurchased(
           selectedPostId, 
           selectedSeller.id,
@@ -245,23 +245,9 @@ const MyPosts: React.FC = () => {
         );
         
         if (!purchaseResponse.success) {
+          toast.dismiss(loadingToast);
           toast.error(purchaseResponse.message || "Failed to mark post as purchased");
           return;
-        }
-        
-        // Step 2: Force-refresh seller profile data
-        let updatedUserData = null;
-        try {
-          // Wait a moment for backend to process all updates
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
-          if (userProfileResponse.success) {
-            updatedUserData = userProfileResponse.user;
-            console.log('Updated user profile data:', updatedUserData);
-          }
-        } catch (profileError) {
-          console.error('Failed to refresh user profile:', profileError);
         }
         
         // Update local post state
@@ -270,21 +256,44 @@ const MyPosts: React.FC = () => {
         ));
         
         toast.dismiss(loadingToast);
-        toast.success("Post marked as purchased and seller rated");
+        toast.success("Post marked as purchased successfully");
         
-        // Give feedback about rating update
-        if (updatedUserData) {
-          // Ensure the rating is treated as a number
-          const numericRating = typeof updatedUserData.rating === 'string' 
-            ? parseFloat(updatedUserData.rating) 
-            : updatedUserData.rating || 0;
-          
-          if (!isNaN(numericRating)) {
-            toast(`${selectedSeller.name}'s rating is now ${numericRating.toFixed(1)}`);
-          } else {
-            toast(`${selectedSeller.name} has been rated successfully`);
+        // The backend needs time to process the rating update
+        // Wait a bit longer to fetch the updated profile data
+        setTimeout(async () => {
+          try {
+            // Add cache-busting query parameter
+            const timestamp = new Date().getTime();
+            const response = await fetch(`${API_BASE_URL}/api/users/${selectedSeller.id}?_=${timestamp}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+              }
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.user) {
+                console.log('Updated seller profile data:', data.user);
+                
+                // Parse rating value safely
+                let numericRating = 0;
+                if (data.user.rating !== undefined) {
+                  numericRating = typeof data.user.rating === 'string' 
+                    ? parseFloat(data.user.rating) 
+                    : data.user.rating;
+                }
+                
+                if (!isNaN(numericRating)) {
+                  toast(`${selectedSeller.name}'s rating: ${numericRating.toFixed(1)} stars`);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching updated profile:', error);
           }
-        }
+        }, 2000); // Wait 2 seconds before fetching updated profile
+        
       } catch (error: any) {
         console.error("Error processing purchase:", error);
         toast.dismiss(loadingToast);
