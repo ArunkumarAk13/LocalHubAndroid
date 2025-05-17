@@ -231,7 +231,7 @@ const MyPosts: React.FC = () => {
         return;
       }
 
-      console.log("User submitted rating:", rating);
+      console.log("User submitted rating:", rating, "for seller ID:", selectedSeller.id);
       
       setIsRatingDialogOpen(false);
       
