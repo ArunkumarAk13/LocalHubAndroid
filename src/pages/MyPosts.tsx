@@ -235,11 +235,23 @@ const MyPosts: React.FC = () => {
       
       // Show loading indicator
       toast.loading("Processing your purchase...");
-
-      // First, add a rating for the seller using ratings API
+      
+      // First, get a post from the seller to rate
+      const sellerPostsResponse = await postsAPI.getUserPosts(selectedSeller.id);
+      
+      if (!sellerPostsResponse.success || !sellerPostsResponse.posts || sellerPostsResponse.posts.length === 0) {
+        toast.dismiss();
+        toast.error("Could not find a post from the seller to rate");
+        return;
+      }
+      
+      // Use the first post from the seller for rating
+      const sellerPostId = sellerPostsResponse.posts[0].id;
+      
+      // Add a rating for the seller's post
       const ratingResponse = await ratingsAPI.addRating(
-        selectedPostId,
-        rating, 
+        sellerPostId, // Rate a post owned by the seller
+        rating,
         `Purchase rating for ${selectedSeller.name}`
       );
       
