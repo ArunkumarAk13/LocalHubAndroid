@@ -192,7 +192,9 @@ const Register = () => {
                         </div>
                       </FormControl>
                       {phoneError && <p className="text-sm font-medium text-destructive mt-1">{phoneError}</p>}
-                      <FormMessage />
+                      <div className="hidden">
+                        <FormMessage />
+                      </div>
                     </FormItem>
                   )}
                 />
