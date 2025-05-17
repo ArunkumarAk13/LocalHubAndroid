@@ -52,12 +52,15 @@ api.interceptors.response.use(
       token: error.config?.headers?.Authorization ? 'Present' : 'Missing'
     });
     
-    if (error.response?.status === 401) {
-      console.log('Authentication error, clearing token and redirecting to login');
+    // Don't automatically redirect on auth errors for login/register endpoints
+    if (error.response?.status === 401 && 
+        !error.config?.url?.includes('/auth/login') && 
+        !error.config?.url?.includes('/auth/register')) {
+      console.log('Authentication error, clearing token');
       localStorage.removeItem('token');
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
-      window.location.href = '/login';
+      // Don't force a page refresh - let the app handle this via React Router
     }
     return Promise.reject(error);
   }

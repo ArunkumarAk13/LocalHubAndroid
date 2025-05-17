@@ -79,10 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Then set token
         localStorage.setItem('token', response.token);
         toast.success('Login successful!');
-        // Use setTimeout to ensure state is updated before navigation
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 100);
+        // Use navigate directly instead of setTimeout
+        navigate('/', { replace: true });
         return true;
       } else {
         // Don't use toast here as it might disappear too quickly

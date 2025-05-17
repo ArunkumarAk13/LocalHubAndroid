@@ -55,8 +55,6 @@ const Login = () => {
       setLoginError("Phone number or password is incorrect");
       form.setError("email", { type: "manual" });
       form.setError("password", { type: "manual" });
-      // Prevent default form submission behavior
-      return false;
     }
   };
 
@@ -86,7 +84,7 @@ const Login = () => {
 
             <Form {...form}>
               <form onSubmit={(e) => {
-                if (loginError) e.preventDefault();
+                e.preventDefault(); // Always prevent default form submission
                 form.handleSubmit(onSubmit)(e);
               }} className="space-y-6">
                 <FormField
