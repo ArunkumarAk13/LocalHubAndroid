@@ -113,25 +113,11 @@ export const postsAPI = {
     const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
-  markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
-    try {
-      // Format data with all possible variations to ensure it works
-      const data = {
-        // Include both snake_case and camelCase for compatibility
-        sellerId,
-        seller_id: sellerId,
-        userId: sellerId,
-        user_id: sellerId,
-        rating,
-        post_id: postId,
-        postId,
-        purchased: true,
-        update_user_rating: true // Signal to backend that we want to update the seller rating
-      };
+  markAsPurchased: async (postId: string) => {
+    try {      
+      console.log('Marking post as purchased:', postId);
       
-      console.log('Marking post as purchased with data:', data);
-      
-      const response = await api.patch(`/api/posts/${postId}/purchased`, data);
+      const response = await api.patch(`/api/posts/${postId}/purchased`, {});
       console.log('Purchase response:', response.data);
       
       return response.data;
@@ -152,20 +138,9 @@ export const ratingsAPI = {
         post_id: postId, 
         postId: postId,
         
-        // User info
-        user_id: userId,
-        userId: userId,
-        seller_id: userId,
-        sellerId: userId,
-        
         // Rating details
         rating: rating,
-        comment: comment || '',
-        
-        // Flags to ensure the backend treats this properly
-        type: 'seller_rating',
-        is_seller_rating: true,
-        update_user_rating: true
+        comment: comment || ''
       };
       
       console.log('Sending rating data:', data);
@@ -191,26 +166,18 @@ export const ratingsAPI = {
     try {
       console.log(`Creating seller rating: seller=${sellerId}, post=${postId}, rating=${rating}`);
       
-      // This is a simple, focused payload specifically for seller ratings
+      // Based on the backend implementation, we just need to rate the post
+      // The backend will automatically update the user's rating based on post ratings
       const data = {
-        seller_id: sellerId,
         post_id: postId,
         rating: rating,
-        comment: comment,
-        type: "seller_rating"
+        comment: comment || "Good seller"
       };
       
-      // Try endpoint specifically for seller ratings first
-      try {
-        const response = await api.post('/api/user-ratings', data);
-        console.log('Seller rating response:', response.data);
-        return response.data;
-      } catch (error) {
-        // Fall back to the standard ratings endpoint
-        const response = await api.post('/api/ratings', data);
-        console.log('Fallback rating response:', response.data);
-        return response.data;
-      }
+      console.log('Using standard ratings endpoint with data:', data);
+      const response = await api.post('/api/ratings', data);
+      console.log('Seller rating response:', response.data);
+      return response.data;
     } catch (error) {
       console.error('Failed to create seller rating:', error);
       return { success: false, message: "Failed to create seller rating" };
@@ -229,33 +196,7 @@ export const ratingsAPI = {
         message: error.response?.data?.message || "Failed to fetch ratings"
       };
     }
-  },
-
-  // Direct method to update a user's rating by adding a specific review
-  addUserReview: async (userId: string, rating: number, comment: string = "Great seller!") => {
-    try {
-      console.log(`Adding review for user ${userId} with rating ${rating}`);
-      
-      // Format data according to backend expectations
-      const data = {
-        user_id: userId,
-        rating: rating,
-        comment: comment
-      };
-      
-      // Send to the user ratings endpoint
-      const response = await api.post(`/api/users/${userId}/ratings`, data);
-      console.log('User review response:', response.data);
-      
-      return response.data;
-    } catch (error) {
-      console.error('User rating update failed:', error);
-      if (error.response) {
-        return error.response.data;
-      }
-      return { success: false, message: "Failed to update user rating" };
-    }
-  },
+  }
 };
 
 // Users API
@@ -337,12 +278,11 @@ export const usersAPI = {
       localStorage.removeItem('subscribedCategories');
       
       // Add a random query parameter to prevent caching
-      const cacheBuster = new Date().getTime();
-      const response = await api.get(`/api/users/subscribed-categories?_=${cacheBuster}`);
-      console.log("API received subscribed categories:", response.data);
+      const timestamp = new Date().getTime();
+      const response = await api.get(`/api/users/subscribed/categories?_=${timestamp}`);
       
-      // Store successfully fetched categories in localStorage with a user identifier
-      if (response.data.success && Array.isArray(response.data.categories)) {
+      if (response.data.success && response.data.categories) {
+        console.log("API: Successfully fetched categories:", response.data.categories);
         localStorage.setItem('subscribedCategories', JSON.stringify(response.data.categories));
       }
       
@@ -350,11 +290,24 @@ export const usersAPI = {
     } catch (error: any) {
       console.error("Error fetching subscribed categories:", error);
       
-      // Don't use cached data for this scenario as it may belong to another user
+      // Try to get from localStorage as fallback
+      const cachedCategories = localStorage.getItem('subscribedCategories');
+      if (cachedCategories) {
+        console.log("Using cached categories from localStorage");
+        return {
+          success: true,
+          categories: JSON.parse(cachedCategories),
+          message: "Using cached data (offline)"
+        };
+      }
+      
+      if (error.response) {
+        return error.response.data;
+      }
       return { 
         success: false, 
         categories: [],
-        message: error.response?.data?.message || "Failed to fetch subscribed categories" 
+        message: "Failed to fetch subscribed categories" 
       };
     }
   },
@@ -484,32 +437,6 @@ export const usersAPI = {
         return error.response.data;
       }
       throw error;
-    }
-  },
-
-  // Method to add a direct user review
-  addUserReview: async (userId: string, rating: number, comment: string = "Great seller!") => {
-    try {
-      console.log(`Adding review for user ${userId} with rating ${rating}`);
-      
-      // Format data according to backend expectations
-      const data = {
-        user_id: userId,
-        rating: rating,
-        comment: comment
-      };
-      
-      // Send to the user ratings endpoint
-      const response = await api.post(`/api/users/${userId}/ratings`, data);
-      console.log('User review response:', response.data);
-      
-      return response.data;
-    } catch (error) {
-      console.error('User rating update failed:', error);
-      if (error.response) {
-        return error.response.data;
-      }
-      return { success: false, message: "Failed to update user rating" };
     }
   },
 };

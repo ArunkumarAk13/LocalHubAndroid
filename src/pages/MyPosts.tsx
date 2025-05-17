@@ -237,25 +237,25 @@ const MyPosts: React.FC = () => {
       const loadingToast = toast.loading("Processing your purchase and rating...");
       
       try {
-        // Step 1: Try to create a direct seller rating first
+        // Step 1: Create a seller rating by rating the post
         try {
           const ratingResponse = await ratingsAPI.createSellerRating(
             selectedSeller.id, 
             selectedPostId,
             rating
           );
-          console.log('Direct seller rating response:', ratingResponse);
+          console.log('Seller rating response:', ratingResponse);
+          
+          if (!ratingResponse.success) {
+            console.error('Rating not successful:', ratingResponse.message);
+          }
         } catch (ratingError) {
-          console.error('Error creating direct seller rating:', ratingError);
+          console.error('Error creating seller rating:', ratingError);
           // Continue with the process even if this fails
         }
 
-        // Step 2: Mark the post as purchased with the selected seller and rating
-        const purchaseResponse = await postsAPI.markAsPurchased(
-          selectedPostId, 
-          selectedSeller.id,
-          rating
-        );
+        // Step 2: Mark the post as purchased
+        const purchaseResponse = await postsAPI.markAsPurchased(selectedPostId);
         
         if (!purchaseResponse.success) {
           toast.dismiss(loadingToast);
@@ -275,17 +275,6 @@ const MyPosts: React.FC = () => {
         // Wait a bit and then fetch the updated user profile
         setTimeout(async () => {
           try {
-            // Add a direct user review as a final attempt to ensure rating is saved
-            try {
-              await usersAPI.addUserReview(
-                selectedSeller.id,
-                rating,
-                `Rating from purchase of post ${selectedPostId}`
-              );
-            } catch (reviewError) {
-              console.error('Error adding user review:', reviewError);
-            }
-            
             // Check if profile was updated
             const userProfile = await usersAPI.getUserProfile(selectedSeller.id);
             if (userProfile.success && userProfile.user) {
