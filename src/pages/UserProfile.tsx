@@ -150,7 +150,12 @@ const UserProfile = () => {
   // Rating stars display with refresh on click
   const renderRatingStars = (rating: number = 0) => {
     // Ensure rating is always a number before using toFixed
-    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
+    // Handle both number and string types
+    const numericRating = typeof rating === 'number' 
+      ? rating 
+      : typeof rating === 'string'
+        ? parseFloat(rating)
+        : 0;
     
     return (
       <div className="flex items-center">
@@ -166,7 +171,9 @@ const UserProfile = () => {
             onClick={refreshUserData} // Allow refreshing ratings on click
           />
         ))}
-        <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          ({!isNaN(numericRating) ? numericRating.toFixed(1) : '0.0'})
+        </span>
       </div>
     );
   };

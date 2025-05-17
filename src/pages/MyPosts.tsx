@@ -249,25 +249,7 @@ const MyPosts: React.FC = () => {
           return;
         }
         
-        // Step 2: Directly update the user's rating as a backup measure
-        try {
-          await usersAPI.updateUserRating(selectedSeller.id, rating);
-          console.log("Direct rating update successful");
-        } catch (ratingError) {
-          console.error("Direct rating update failed:", ratingError);
-          // Continue anyway as the main purchase was successful
-        }
-        
-        // Step 3: Create a direct rating entry
-        try {
-          await ratingsAPI.addRating(selectedPostId, rating, `Rating for purchase of item ${selectedPostId}`, selectedSeller.id);
-          console.log("Rating entry created successfully");
-        } catch (ratingEntryError) {
-          console.error("Rating entry creation failed:", ratingEntryError);
-          // Continue anyway as the main purchase was successful
-        }
-        
-        // Step 4: Force-refresh seller profile data
+        // Step 2: Force-refresh seller profile data
         let updatedUserData = null;
         try {
           // Wait a moment for backend to process all updates
@@ -292,7 +274,16 @@ const MyPosts: React.FC = () => {
         
         // Give feedback about rating update
         if (updatedUserData) {
-          toast(`${selectedSeller.name}'s rating is now ${updatedUserData.rating?.toFixed(1) || "updated"}`);
+          // Ensure the rating is treated as a number
+          const numericRating = typeof updatedUserData.rating === 'string' 
+            ? parseFloat(updatedUserData.rating) 
+            : updatedUserData.rating || 0;
+          
+          if (!isNaN(numericRating)) {
+            toast(`${selectedSeller.name}'s rating is now ${numericRating.toFixed(1)}`);
+          } else {
+            toast(`${selectedSeller.name} has been rated successfully`);
+          }
         }
       } catch (error: any) {
         console.error("Error processing purchase:", error);

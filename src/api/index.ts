@@ -125,14 +125,8 @@ export const postsAPI = {
       // If we have both a seller ID and rating, ensure the rating is created properly
       if (sellerId && rating && rating > 0) {
         try {
-          // Multiple approaches to ensure rating is updated:
-          
-          // 1. Create a rating through the ratings API
+          // Create a rating through the ratings API
           await ratingsAPI.addRating(postId, rating, `Rating from purchased post ${postId}`, sellerId);
-          
-          // 2. Directly update the user's rating
-          await usersAPI.updateUserRating(sellerId, rating);
-          
           console.log('Successfully added rating for seller:', sellerId, 'with score:', rating);
         } catch (ratingError) {
           console.error('Failed to add rating for seller:', ratingError);
@@ -151,19 +145,27 @@ export const postsAPI = {
 // Ratings API
 export const ratingsAPI = {
   addRating: async (postId: string, rating: number, comment?: string, userId?: string) => {
-    const data = {
-      postId,
-      rating,
-      comment: comment || '',
-    };
-    
-    // If a specific user ID is provided, include it in the request
-    if (userId) {
-      data['userId'] = userId;
+    try {
+      // The backend expects a specific format
+      const data = {
+        post_id: postId, // Use snake_case to match backend
+        user_id: userId, // Use snake_case to match backend
+        rating: rating,
+        comment: comment || ''
+      };
+      
+      console.log('Sending rating data:', data);
+      
+      const response = await api.post('/api/ratings', data);
+      return response.data;
+    } catch (error) {
+      console.error("Error adding rating:", error);
+      // Return a structured error response
+      return {
+        success: false,
+        message: error.message || "Failed to add rating"
+      };
     }
-    
-    const response = await api.post('/api/ratings', data);
-    return response.data;
   },
   getPostRatings: async (postId: string) => {
     const response = await api.get(`/api/ratings/post/${postId}`);
@@ -380,19 +382,6 @@ export const usersAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Error updating user settings:", error);
-      if (error.response) {
-        return error.response.data;
-      }
-      throw error;
-    }
-  },
-
-  updateUserRating: async (userId: string, rating: number) => {
-    try {
-      const response = await api.post(`/api/users/${userId}/rating`, { rating });
-      return response.data;
-    } catch (error: any) {
-      console.error("Error updating user rating:", error);
       if (error.response) {
         return error.response.data;
       }

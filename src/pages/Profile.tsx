@@ -44,7 +44,12 @@ const Profile = () => {
     const currentRating = user?.rating !== undefined ? user.rating : rating;
     
     // Ensure rating is always a number before using toFixed
-    const numericRating = typeof currentRating === 'number' ? currentRating : Number(currentRating) || 0;
+    // Handle both number and string types
+    const numericRating = typeof currentRating === 'number' 
+      ? currentRating 
+      : typeof currentRating === 'string'
+        ? parseFloat(currentRating)
+        : 0;
     
     console.log('Rendering rating stars with value:', numericRating);
     
@@ -62,7 +67,9 @@ const Profile = () => {
             onClick={refreshUserRating} // Allow refreshing ratings on click
           />
         ))}
-        <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
+        <span className="ml-2 text-sm text-muted-foreground">
+          ({!isNaN(numericRating) ? numericRating.toFixed(1) : '0.0'})
+        </span>
       </div>
     );
   };
