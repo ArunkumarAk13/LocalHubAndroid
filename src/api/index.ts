@@ -355,19 +355,19 @@ export const usersAPI = {
 
 // Chats API
 export const chatsAPI = {
-  getChatParticipantsForPost: async (postId: string) => {
+  getAllChats: async () => {
     try {
-      const response = await api.get(`/api/chats/participants/post/${postId}`);
+      const response = await api.get(`/api/chats`);
       return response.data;
     } catch (error: any) {
-      console.error("Error fetching chat participants:", error);
+      console.error("Error fetching chats:", error);
       if (error.response) {
         return error.response.data;
       }
       return { 
         success: false, 
-        participants: [],
-        message: error.message || "Failed to fetch chat participants" 
+        chats: [],
+        message: error.message || "Failed to fetch chats" 
       };
     }
   },

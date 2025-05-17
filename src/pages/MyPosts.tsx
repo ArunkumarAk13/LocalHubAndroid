@@ -136,12 +136,29 @@ const MyPosts: React.FC = () => {
   const loadChatParticipants = async (postId: string) => {
     try {
       setLoadingParticipants(true);
-      const response = await chatsAPI.getChatParticipantsForPost(postId);
+      const response = await chatsAPI.getAllChats();
       
-      if (response.success) {
-        setChatParticipants(response.participants || []);
-        if (response.participants.length === 0) {
-          toast.info("No chat participants found for this post");
+      if (response.success && Array.isArray(response.chats)) {
+        // Extract unique participants from all chats
+        const uniqueParticipants: Record<string, ChatParticipant> = {};
+        
+        response.chats.forEach((chat: any) => {
+          // Add participant to the unique list if they're not already there
+          if (chat.participant_id && chat.participant_id !== user?.id) {
+            uniqueParticipants[chat.participant_id] = {
+              id: chat.participant_id,
+              name: chat.participant_name,
+              avatar: chat.participant_avatar
+            };
+          }
+        });
+        
+        // Convert to array
+        const participants = Object.values(uniqueParticipants);
+        setChatParticipants(participants);
+        
+        if (participants.length === 0) {
+          toast.info("No chat participants found");
         }
       } else {
         toast.error("Failed to load participants");
@@ -387,9 +404,9 @@ const MyPosts: React.FC = () => {
       <Dialog open={isPurchaseDialogOpen} onOpenChange={setIsPurchaseDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>From whom did you purchase this item?</DialogTitle>
+            <DialogTitle>Mark Item as Purchased</DialogTitle>
             <DialogDescription>
-              Select the person who sold you the item. You can also rate your experience with them.
+              Select who you purchased this item from and rate your experience with them.
             </DialogDescription>
           </DialogHeader>
           
@@ -399,38 +416,41 @@ const MyPosts: React.FC = () => {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : chatParticipants.length > 0 ? (
-              <ScrollArea className="h-[240px] pr-4">
-                <div className="space-y-2">
-                  {chatParticipants.map(participant => (
-                    <div
-                      key={participant.id}
-                      className={`flex items-center p-3 rounded-md cursor-pointer ${
-                        selectedSellerId === participant.id 
-                          ? 'bg-accent border border-primary' 
-                          : 'hover:bg-accent/50'
-                      }`}
-                      onClick={() => setSelectedSellerId(participant.id)}
-                    >
-                      <Avatar className="h-10 w-10 mr-3">
-                        <AvatarImage src={getAvatarUrl(participant.avatar)} />
-                        <AvatarFallback>
-                          {participant.name?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium">{participant.name}</p>
+              <>
+                <h4 className="text-sm font-medium mb-2">From whom did you purchase this item?</h4>
+                <ScrollArea className="h-[240px] pr-4">
+                  <div className="space-y-2">
+                    {chatParticipants.map(participant => (
+                      <div
+                        key={participant.id}
+                        className={`flex items-center p-3 rounded-md cursor-pointer ${
+                          selectedSellerId === participant.id 
+                            ? 'bg-accent border border-primary' 
+                            : 'hover:bg-accent/50'
+                        }`}
+                        onClick={() => setSelectedSellerId(participant.id)}
+                      >
+                        <Avatar className="h-10 w-10 mr-3">
+                          <AvatarImage src={getAvatarUrl(participant.avatar)} />
+                          <AvatarFallback>
+                            {participant.name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium">{participant.name}</p>
+                        </div>
+                        {selectedSellerId === participant.id && (
+                          <CheckCircle className="h-5 w-5 text-primary" />
+                        )}
                       </div>
-                      {selectedSellerId === participant.id && (
-                        <CheckCircle className="h-5 w-5 text-primary" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </>
             ) : (
               <div className="py-8 text-center text-muted-foreground">
-                <p>No chat participants found for this post</p>
-                <p className="text-sm mt-2">You can still mark it as purchased</p>
+                <p>No chat participants found</p>
+                <p className="text-sm mt-2">You must have active conversations to mark a post as purchased</p>
               </div>
             )}
             
@@ -456,7 +476,7 @@ const MyPosts: React.FC = () => {
             </Button>
             <Button
               onClick={handleMarkAsPurchased}
-              disabled={!selectedSellerId}
+              disabled={!selectedSellerId || chatParticipants.length === 0}
             >
               Confirm Purchase
             </Button>
