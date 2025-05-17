@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { Search, ArrowLeft } from "lucide-react";
+import { API_BASE_URL } from '@/api/config';
 
 interface Message {
   id: string;
@@ -45,7 +46,7 @@ const Chat = () => {
   useEffect(() => {
     const fetchChats = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/chats`, {
+        const response = await fetch(`${API_BASE_URL}/api/chats`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
@@ -78,7 +79,7 @@ const Chat = () => {
       if (!participantId || selectedChat) return;
       
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/chats`, {
+        const response = await fetch(`${API_BASE_URL}/api/chats`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -114,7 +115,7 @@ const Chat = () => {
       if (!selectedChat) return;
       setIsLoadingMessages(true);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/chats/${selectedChat}/messages`, {
+        const response = await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/messages`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
@@ -124,7 +125,7 @@ const Chat = () => {
         setMessages(data);
 
         // Mark messages as read
-        await fetch(`${import.meta.env.VITE_API_URL}/chats/${selectedChat}/read`, {
+        await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/read`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -163,7 +164,7 @@ const Chat = () => {
     if (!message.trim() || !selectedChat) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/chats/${selectedChat}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

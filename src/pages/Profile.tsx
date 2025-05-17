@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { TextField } from "@/components/ui/text-field";
 import { DialogActions } from "@/components/ui/dialog";
 import Settings from "@/components/Settings";
+import { API_BASE_URL } from '@/api/config';
 
 const Profile = () => {
   const { user, logout } = useAuth();
@@ -116,17 +117,7 @@ const Profile = () => {
         formData.append('avatar', fileInput.files[0]);
       }
 
-      // Debug environment variables
-      console.log('Environment variables:', {
-        VITE_API_URL: import.meta.env.VITE_API_URL,
-        MODE: import.meta.env.MODE,
-        DEV: import.meta.env.DEV,
-        PROD: import.meta.env.PROD
-      });
-
-      // Use a fallback URL if environment variable is not available
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const apiUrl = `${baseUrl}/users/profile`;
+      const apiUrl = `${API_BASE_URL}/api/users/profile`;
       console.log('Sending profile update request to:', apiUrl);
       
       const response = await fetch(apiUrl, {
@@ -200,7 +191,7 @@ const Profile = () => {
     if (!url) return "https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=";
     if (url.startsWith('blob:')) return url;
     if (url.startsWith('http')) return url;
-    return `${import.meta.env.VITE_API_URL.replace('/api', '')}${url}`;
+    return `${API_BASE_URL}${url}`;
   };
 
   return (

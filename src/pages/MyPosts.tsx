@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ChevronLeft, Trash, CheckCircle, Loader2 } from 'lucide-react';
 import { postsAPI } from '@/api';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '@/api/config';
 
 interface Post {
   id: string;
@@ -168,8 +169,8 @@ const MyPosts: React.FC = () => {
     console.log('Getting image URL for:', url);
     if (!url) return 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
     if (url.startsWith('http')) return url;
-    if (url.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL.replace('/api', '')}${url}`;
-    return `${import.meta.env.VITE_API_URL.replace('/api', '')}/uploads/post-images/${url}`;
+    if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
+    return `${API_BASE_URL}/uploads/post-images/${url}`;
   };
 
   if (loading) {

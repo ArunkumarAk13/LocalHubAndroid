@@ -1,14 +1,17 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
+import { Capacitor } from '@capacitor/core';
 
-// Create an axios instance
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Create an axios instance with the correct baseURL
+const baseURL = `${API_BASE_URL}/api`;
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
+  // withCredentials is needed for web, but can cause issues on native mobile
+  withCredentials: !Capacitor.isNativePlatform()
 });
 
 // Add a request interceptor to include the token in all authenticated requests
@@ -18,8 +21,11 @@ api.interceptors.request.use(
     if (token) {
       // Ensure the Authorization header is properly set
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('Making request to:', config.baseURL + config.url);
-      console.log('With headers:', config.headers);
+      
+      // Only log in development
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Making request to:', config.baseURL + config.url);
+      }
     } else {
       console.warn('No token found in localStorage for request to:', config.baseURL + config.url);
     }

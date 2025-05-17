@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { User } from "lucide-react";
+import { API_BASE_URL } from '@/api/config';
 
 interface UnreadCount {
   count: number;
@@ -24,7 +25,7 @@ const Navbar = () => {
 
     const fetchUnreadCount = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/chats/unread-count`, {
+        const response = await fetch(`${API_BASE_URL}/api/chats/unread-count`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
+import { API_BASE_URL } from '@/api/config';
 
 interface Message {
   id: string;
@@ -36,7 +37,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ chatId, participant, onClose }) => {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/chats/${chatId}/messages`, {
+        const response = await fetch(`${API_BASE_URL}/api/chats/${chatId}/messages`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
@@ -67,7 +68,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ chatId, participant, onClose }) => {
     if (!newMessage.trim()) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/chats/${chatId}/messages`, {
+      const response = await fetch(`${API_BASE_URL}/api/chats/${chatId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

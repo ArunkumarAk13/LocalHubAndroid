@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from 'sonner';
 import { usersAPI } from '@/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE_URL } from '@/api/config';
 
 const CATEGORIES = [
   // Electronics & Gadgets
@@ -275,7 +276,7 @@ const Navigation: React.FC = () => {
       if (!isAuthenticated) return;
       
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/chats/unread-count`, {
+        const response = await fetch(`${API_BASE_URL}/api/chats/unread-count`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },

@@ -15,6 +15,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import ChatBox from './ChatBox';
+import { API_BASE_URL } from '@/api/config';
 
 export interface NeedCardProps {
   id: string;
@@ -109,8 +110,8 @@ const NeedCard: React.FC<NeedCardProps> = ({
   const getImageUrl = (url: string) => {
     if (!url) return 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
     if (url.startsWith('http')) return url;
-    if (url.startsWith('/uploads')) return `${import.meta.env.VITE_API_URL.replace('/api', '')}${url}`;
-    return `${import.meta.env.VITE_API_URL.replace('/api', '')}/uploads/post-images/${url}`;
+    if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
+    return `${API_BASE_URL}/uploads/post-images/${url}`;
   };
 
   return (
