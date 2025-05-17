@@ -23,10 +23,22 @@ import { Label } from "@/components/ui/label";
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  confirmPassword: z.string().min(6, { message: "Confirm password is required" }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters" })
+    .refine(
+      (password) => /[A-Z]/.test(password),
+      { message: "Password must contain at least one uppercase letter" }
+    )
+    .refine(
+      (password) => /[0-9]/.test(password),
+      { message: "Password must contain at least one number" }
+    )
+    .refine(
+      (password) => /[^A-Za-z0-9]/.test(password),
+      { message: "Password must contain at least one special character" }
+    ),
+  confirmPassword: z.string().min(8, { message: "Confirm password is required" }),
   phoneNumber: z.string().length(10, { message: "Phone number must be exactly 10 digits" })
-    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
+    .refine((val) => /^\d+$/.test(val),),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -37,6 +49,12 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasNumber: false,
+    hasSymbol: false
+  });
   
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -77,6 +95,16 @@ const Register = () => {
     
     // Set error state for immediate feedback
     setPhoneError(validatePhoneNumber(sanitizedValue));
+  };
+
+  // Check password requirements in real time
+  const checkPasswordRequirements = (password: string) => {
+    setPasswordRequirements({
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSymbol: /[^A-Za-z0-9]/.test(password)
+    });
   };
 
   // Form submission handler
@@ -185,6 +213,10 @@ const Register = () => {
                             placeholder="••••••••" 
                             className="pl-10 h-12 text-base" 
                             {...field} 
+                            onChange={(e) => {
+                              field.onChange(e);
+                              checkPasswordRequirements(e.target.value);
+                            }}
                           />
                           <Button
                             type="button"
@@ -195,6 +227,32 @@ const Register = () => {
                           </Button>
                         </div>
                       </FormControl>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div className="flex items-center text-xs">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.minLength ? 'bg-green-500' : 'bg-gray-300'}`}>
+                            {passwordRequirements.minLength && <span className="text-white">✓</span>}
+                          </div>
+                          <span>Minimum 8 characters</span>
+                        </div>
+                        <div className="flex items-center text-xs">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasUppercase ? 'bg-green-500' : 'bg-gray-300'}`}>
+                            {passwordRequirements.hasUppercase && <span className="text-white">✓</span>}
+                          </div>
+                          <span>One uppercase letter</span>
+                        </div>
+                        <div className="flex items-center text-xs">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasNumber ? 'bg-green-500' : 'bg-gray-300'}`}>
+                            {passwordRequirements.hasNumber && <span className="text-white">✓</span>}
+                          </div>
+                          <span>One number</span>
+                        </div>
+                        <div className="flex items-center text-xs">
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasSymbol ? 'bg-green-500' : 'bg-gray-300'}`}>
+                            {passwordRequirements.hasSymbol && <span className="text-white">✓</span>}
+                          </div>
+                          <span>One symbol</span>
+                        </div>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
