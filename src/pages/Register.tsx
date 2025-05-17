@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Phone } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,8 @@ const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   confirmPassword: z.string().min(6, { message: "Confirm password is required" }),
-  phoneNumber: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
+  phoneNumber: z.string().length(10, { message: "Phone number must be exactly 10 digits" })
+    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -35,13 +36,7 @@ const Register = () => {
   const { register } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    phoneNumber: '',
-  });
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -53,7 +48,36 @@ const Register = () => {
       confirmPassword: "",
       phoneNumber: "",
     },
+    mode: "onChange", // Enable validation on change
   });
+
+  // Function to validate phone number in real time
+  const validatePhoneNumber = (value: string) => {
+    if (value.length > 10) {
+      return "Phone number cannot be more than 10 digits";
+    }
+    if (value.length < 10 && value.length > 0) {
+      return "Phone number must be 10 digits";
+    }
+    if (!/^\d*$/.test(value)) {
+      return "Phone number must contain only digits";
+    }
+    return null;
+  };
+
+  // Handle phone number changes
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, onChange: (value: string) => void) => {
+    const value = e.target.value;
+    
+    // Allow only digits and limit to 10 characters
+    const sanitizedValue = value.replace(/\D/g, '').slice(0, 10);
+    
+    // Update form value
+    onChange(sanitizedValue);
+    
+    // Set error state for immediate feedback
+    setPhoneError(validatePhoneNumber(sanitizedValue));
+  };
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -127,15 +151,19 @@ const Register = () => {
                       <FormControl>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <User size={18} />
+                            <Phone size={18} />
                           </div>
                           <Input 
-                            placeholder="+1234567890" 
-                            className="pl-10 h-12 text-base" 
-                            {...field} 
+                            placeholder="Enter 10 digit number" 
+                            className={`pl-10 h-12 text-base ${phoneError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                            value={field.value}
+                            onChange={(e) => handlePhoneChange(e, field.onChange)}
+                            maxLength={10}
+                            inputMode="numeric"
                           />
                         </div>
                       </FormControl>
+                      {phoneError && <p className="text-sm font-medium text-destructive mt-1">{phoneError}</p>}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -206,6 +234,7 @@ const Register = () => {
                 <Button 
                   type="submit" 
                   className="w-full h-12 text-base font-medium bg-primary hover:bg-primary/90"
+                  disabled={!!phoneError && form.formState.isSubmitting}
                 >
                   Create Account <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
