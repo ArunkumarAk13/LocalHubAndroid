@@ -70,9 +70,10 @@ api.interceptors.response.use(
 export const authAPI = {
   login: async (phoneNumber: string, password: string) => {
     try {
-      // The backend still expects email parameter, not phone_number
+      // Send both parameters to support our modified backend
       const response = await api.post('/api/auth/login', { 
-        email: phoneNumber,  // Backend uses email field but we're passing phone number 
+        phone_number: phoneNumber,
+        email: phoneNumber,  // Also try as email for backward compatibility
         password 
       });
       return response.data;

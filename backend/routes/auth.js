@@ -55,26 +55,39 @@ router.post('/register', async (req, res, next) => {
 // Login user
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, phone_number } = req.body;
+    let user;
     
-    // Get user from database
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-    
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
+    // Get user from database - support both email and phone number login
+    if (email) {
+      const emailResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+      if (emailResult.rows.length > 0) {
+        user = emailResult.rows[0];
+      }
     }
     
-    const user = result.rows[0];
+    // If no user found by email, try phone number
+    if (!user && phone_number) {
+      const phoneResult = await db.query('SELECT * FROM users WHERE phone_number = $1', [phone_number]);
+      if (phoneResult.rows.length > 0) {
+        user = phoneResult.rows[0];
+      }
+    }
+    
+    // If no user found at all
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid login credentials'
+      });
+    }
     
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: 'Invalid login credentials'
       });
     }
     
