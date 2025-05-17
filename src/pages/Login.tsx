@@ -42,12 +42,28 @@ const Login = () => {
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoginError(null); // Clear previous errors
-    const result = await login(values.email, values.password);
-    if (!result) {
+    try {
+      const result = await login(values.email, values.password);
+      if (!result) {
+        setLoginError("Phone number or password is incorrect");
+        // Keep the form's error state
+        form.setError("email", { type: "manual" });
+        form.setError("password", { type: "manual" });
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
       setLoginError("Phone number or password is incorrect");
-      // Keep the form's error state
       form.setError("email", { type: "manual" });
       form.setError("password", { type: "manual" });
+      // Prevent default form submission behavior
+      return false;
+    }
+  };
+
+  // Prevent form from submitting normally
+  const handleSubmit = (e: React.FormEvent) => {
+    if (loginError) {
+      e.preventDefault();
     }
   };
 
@@ -69,7 +85,10 @@ const Login = () => {
             )}
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={(e) => {
+                if (loginError) e.preventDefault();
+                form.handleSubmit(onSubmit)(e);
+              }} className="space-y-6">
                 <FormField
                   control={form.control}
                   name="email"

@@ -85,12 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, 100);
         return true;
       } else {
-        toast.error(response.message || 'Invalid email or password');
+        // Don't use toast here as it might disappear too quickly
+        console.error('Login failed:', response.message || 'Invalid email or password');
         return false;
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      // Don't use toast here as it might disappear too quickly
       console.error('Login error:', error);
+      // Return false rather than throwing an error
       return false;
     }
   };
