@@ -18,11 +18,8 @@ const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:5173',
   'https://local-hub-website.vercel.app',
-    'https://localhost',              // For local dev in WebView
-    'http://localhost',               // For local dev in WebView         // If you use Vite dev server
-    'capacitor://localhost',          // For native Capacitor apps
-    'http://192.168.103.135:5000',    // Your local IP (if needed)
-    'https://localhub-backend-so0i.onrender.com' // Your backend itself (optional)
+  'capacitor://localhost',
+  'http://localhost'
 ];
 
 app.use(cors({

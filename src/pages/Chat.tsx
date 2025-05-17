@@ -189,12 +189,12 @@ const Chat = () => {
 
   const filteredChats = chats.filter(chat =>
     chat.participant_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-    chat.participant_id !== String(user?.id) // Filter out current user's chat
+    chat.participant_id !== user?.id // Filter out current user's chat
   );
 
   if (!selectedChat) {
     return (
-      <div className="container mx-auto p-4 h-[calc(90vh-4rem)]">
+      <div className="containerr mx-auto h-screen">
         <Card className="h-full">
           <div className="p-4 border-b">
             <div className="flex items-center justify-between">
@@ -220,7 +220,7 @@ const Chat = () => {
               />
             </div>
           </div>
-          <ScrollArea className="h-[calc(90vh-12rem)]">
+          <ScrollArea className="h-screen">
             <div className="p-4 space-y-4">
               {filteredChats.length > 0 ? (
                 filteredChats.map((chat) => (
@@ -269,7 +269,7 @@ const Chat = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 h-[calc(90vh-4rem)]">
+    <div className="containerr mx-auto h-screen">
       <Card className="flex flex-col h-full">
         <div className="p-4 border-b">
           <div className="flex items-center gap-3">
@@ -306,12 +306,12 @@ const Chat = () => {
                   <div
                     key={msg.id}
                     className={`flex ${
-                      msg.sender_id === String(user?.id) ? "justify-end" : "justify-start"
+                      msg.sender_id === user?.id ? "justify-end" : "justify-start"
                     }`}
                   >
                     <div
                       className={`max-w-[70%] rounded-lg p-3 ${
-                        msg.sender_id === String(user?.id)
+                        msg.sender_id === user?.id
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted"
                       }`}
