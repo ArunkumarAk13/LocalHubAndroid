@@ -68,9 +68,9 @@ api.interceptors.response.use(
 
 // Authentication API
 export const authAPI = {
-  login: async (email: string, password: string) => {
+  login: async (phoneNumber: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/login', { email, password });
+      const response = await api.post('/api/auth/login', { phoneNumber, password });
       return response.data;
     } catch (error: any) {
       console.error("Login API error:", error.response || error);
@@ -79,7 +79,7 @@ export const authAPI = {
       if (error.response) {
         return {
           success: false,
-          message: error.response.data?.message || "Invalid email or password"
+          message: error.response.data?.message || "Invalid phone number or password"
         };
       }
       

@@ -17,7 +17,7 @@ export interface User {
 // Define the context type
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<any>;
+  login: (phoneNumber: string, password: string) => Promise<any>;
   register: (name: string, email: string, password: string, phoneNumber: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: { name: string; avatar: string; phoneNumber: string }) => Promise<any>;
@@ -65,13 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Login function
-  const login = async (email: string, password: string) => {
+  const login = async (phoneNumber: string, password: string) => {
     try {
       // Clear previous user data first
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
       
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(phoneNumber, password);
       
       if (response.success) {
         // Set user data first
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       } else {
         // Don't use toast here as it might disappear too quickly
-        console.error('Login failed:', response.message || 'Invalid email or password');
+        console.error('Login failed:', response.message || 'Invalid phone number or password');
         return false;
       }
     } catch (error: any) {

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Phone, Lock, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Define the form schema
 const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
+  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
@@ -34,7 +34,7 @@ const Login = () => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      phoneNumber: "",
       password: "",
     },
   });
@@ -43,17 +43,17 @@ const Login = () => {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoginError(null); // Clear previous errors
     try {
-      const result = await login(values.email, values.password);
+      const result = await login(values.phoneNumber, values.password);
       if (!result) {
         setLoginError("Phone number or password is incorrect");
         // Keep the form's error state
-        form.setError("email", { type: "manual" });
+        form.setError("phoneNumber", { type: "manual" });
         form.setError("password", { type: "manual" });
       }
     } catch (error: any) {
       console.error("Login error:", error);
       setLoginError("Phone number or password is incorrect");
-      form.setError("email", { type: "manual" });
+      form.setError("phoneNumber", { type: "manual" });
       form.setError("password", { type: "manual" });
     }
   };
@@ -89,17 +89,17 @@ const Login = () => {
               }} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="email"
+                  name="phoneNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-base">Email</FormLabel>
+                      <FormLabel className="text-base">Phone Number</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <Mail size={18} />
+                            <Phone size={18} />
                           </div>
                           <Input 
-                            placeholder="email@example.com" 
+                            placeholder="Enter your phone number" 
                             className={`pl-10 h-12 text-base ${loginError ? "border-destructive focus-visible:ring-destructive" : ""}`} 
                             {...field} 
                           />
