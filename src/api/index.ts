@@ -117,13 +117,18 @@ export const postsAPI = {
     try {      
       console.log('Marking post as purchased:', postId);
       
+      // The backend only needs the post ID to toggle purchased status
+      // No need for additional parameters based on backend implementation
       const response = await api.patch(`/api/posts/${postId}/purchased`, {});
       console.log('Purchase response:', response.data);
       
       return response.data;
     } catch (error) {
       console.error("Error marking post as purchased:", error);
-      throw error;
+      if (error.response) {
+        return error.response.data;
+      }
+      return { success: false, message: "Failed to mark post as purchased" };
     }
   },
 };
@@ -166,11 +171,13 @@ export const ratingsAPI = {
     try {
       console.log(`Creating seller rating: seller=${sellerId}, post=${postId}, rating=${rating}`);
       
-      // Based on the backend implementation, we just need to rate the post
-      // The backend will automatically update the user's rating based on post ratings
+      // Format data to match what the backend expects
+      // Convert postId to a number since the backend might expect a numeric ID
+      const numericPostId = parseInt(postId, 10);
+      
       const data = {
-        post_id: postId,
-        rating: rating,
+        post_id: isNaN(numericPostId) ? postId : numericPostId,
+        rating: rating, 
         comment: comment || "Good seller"
       };
       
@@ -205,10 +212,9 @@ export const usersAPI = {
     try {
       // Add cache busting to ensure fresh data
       const cacheBuster = new Date().getTime();
-      const url = `${API_BASE_URL}/api/users/${userId}?_=${cacheBuster}`;
       
-      console.log('Fetching user profile:', url);
-      const response = await api.get(url);
+      console.log('Fetching user profile for:', userId);
+      const response = await api.get(`/api/users/${userId}?_=${cacheBuster}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -279,7 +285,7 @@ export const usersAPI = {
       
       // Add a random query parameter to prevent caching
       const timestamp = new Date().getTime();
-      const response = await api.get(`/api/users/subscribed/categories?_=${timestamp}`);
+      const response = await api.get(`/api/users/categories/subscribed?_=${timestamp}`);
       
       if (response.data.success && response.data.categories) {
         console.log("API: Successfully fetched categories:", response.data.categories);
