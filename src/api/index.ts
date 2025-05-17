@@ -358,6 +358,17 @@ export const chatsAPI = {
   getAllChats: async () => {
     try {
       const response = await api.get(`/api/chats`);
+      console.log("Raw chats API response:", response);
+      
+      // If response.data is an array, return it directly
+      if (Array.isArray(response.data)) {
+        return {
+          success: true,
+          chats: response.data
+        };
+      }
+      
+      // Otherwise return the response data as is
       return response.data;
     } catch (error: any) {
       console.error("Error fetching chats:", error);

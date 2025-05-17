@@ -138,29 +138,61 @@ const MyPosts: React.FC = () => {
       setLoadingParticipants(true);
       const response = await chatsAPI.getAllChats();
       
-      if (response.success && Array.isArray(response.chats)) {
+      // Log the full response to understand its structure
+      console.log("Chat response:", response);
+      
+      if (response.success) {
         // Extract unique participants from all chats
         const uniqueParticipants: Record<string, ChatParticipant> = {};
         
-        response.chats.forEach((chat: any) => {
-          // Add participant to the unique list if they're not already there
-          if (chat.participant_id && chat.participant_id !== user?.id) {
-            uniqueParticipants[chat.participant_id] = {
-              id: chat.participant_id,
-              name: chat.participant_name,
-              avatar: chat.participant_avatar
+        // Handle both array or direct response formats
+        const chats = Array.isArray(response) ? response : 
+                      Array.isArray(response.chats) ? response.chats : 
+                      Array.isArray(response.data) ? response.data : [];
+        
+        console.log("Processing chats:", chats);
+        
+        // Process each chat to extract participant information
+        chats.forEach((chat: any) => {
+          // Log each chat object to see what properties it has
+          console.log("Processing chat:", chat);
+          
+          // Check for participant_id with various property name patterns
+          const participantId = chat.participant_id || 
+                               (chat.participant && chat.participant.id) ||
+                               chat.participantId;
+                               
+          // Check for participant_name with various property name patterns
+          const participantName = chat.participant_name || 
+                                 (chat.participant && chat.participant.name) ||
+                                 chat.participantName;
+                                 
+          // Check for participant_avatar with various property name patterns
+          const participantAvatar = chat.participant_avatar || 
+                                   (chat.participant && chat.participant.avatar) ||
+                                   chat.participantAvatar;
+          
+          // Add participant to the unique list if they're not the current user
+          if (participantId && participantId !== user?.id) {
+            console.log("Adding participant:", { participantId, participantName, participantAvatar });
+            uniqueParticipants[participantId] = {
+              id: participantId,
+              name: participantName || "Unknown User",
+              avatar: participantAvatar || ""
             };
           }
         });
         
         // Convert to array
         const participants = Object.values(uniqueParticipants);
+        console.log("Final participants:", participants);
         setChatParticipants(participants);
         
         if (participants.length === 0) {
           toast.info("No chat participants found");
         }
       } else {
+        console.error("Failed to load chats:", response);
         toast.error("Failed to load participants");
       }
     } catch (error) {
