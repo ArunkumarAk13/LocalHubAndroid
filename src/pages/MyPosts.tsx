@@ -6,9 +6,19 @@ import Navigation from '@/components/Navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Dialog,
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ChevronLeft, Trash, CheckCircle, Loader2 } from 'lucide-react';
-import { postsAPI } from '@/api';
+import { ChevronLeft, Trash, CheckCircle, Loader2, Star } from 'lucide-react';
+import { postsAPI, chatsAPI, ratingsAPI } from '@/api';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/api/config';
 
@@ -29,14 +39,27 @@ interface Post {
   };
 }
 
+interface ChatParticipant {
+  id: string;
+  name: string;
+  avatar: string;
+}
+
 const MyPosts: React.FC = () => {
   const navigate = useNavigate();
   const { toast: useToastToast } = useToast();
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [chatParticipants, setChatParticipants] = useState<ChatParticipant[]>([]);
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [selectedRating, setSelectedRating] = useState(0);
+  
+  // Load user posts
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -45,6 +68,7 @@ const MyPosts: React.FC = () => {
     
     const fetchPosts = async () => {
       try {
+        setLoading(true);
         const response = await postsAPI.getUserPosts(String(user.id));
         if (response.success) {
           setPosts(response.posts.map((post: any) => ({
@@ -109,13 +133,55 @@ const MyPosts: React.FC = () => {
     }
   };
 
-  const handleMarkAsPurchased = async (postId: string) => {
+  const loadChatParticipants = async (postId: string) => {
     try {
-      const response = await postsAPI.markAsPurchased(postId);
+      setLoadingParticipants(true);
+      const response = await chatsAPI.getChatParticipantsForPost(postId);
+      
+      if (response.success) {
+        setChatParticipants(response.participants || []);
+        if (response.participants.length === 0) {
+          toast.info("No chat participants found for this post");
+        }
+      } else {
+        toast.error("Failed to load participants");
+      }
+    } catch (error) {
+      console.error("Error loading chat participants:", error);
+      toast.error("Error loading participants");
+    } finally {
+      setLoadingParticipants(false);
+    }
+  };
+
+  const openPurchaseDialog = async (postId: string) => {
+    setSelectedPostId(postId);
+    setSelectedSellerId(null);
+    setSelectedRating(0);
+    setIsPurchaseDialogOpen(true);
+    
+    // Load chat participants for this post
+    await loadChatParticipants(postId);
+  };
+
+  const handleMarkAsPurchased = async () => {
+    if (!selectedPostId || !selectedSellerId) {
+      toast.error("Please select who you purchased from");
+      return;
+    }
+
+    try {
+      const response = await postsAPI.markAsPurchased(
+        selectedPostId, 
+        selectedSellerId,
+        selectedRating > 0 ? selectedRating : undefined
+      );
+      
       if (response.success) {
         setPosts(posts.map(post => 
-          post.id === postId ? { ...post, purchased: true } : post
+          post.id === selectedPostId ? { ...post, purchased: true } : post
         ));
+        setIsPurchaseDialogOpen(false);
         useToastToast({
           title: "Success",
           description: "Post marked as purchased"
@@ -171,6 +237,33 @@ const MyPosts: React.FC = () => {
     if (url.startsWith('http')) return url;
     if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
     return `${API_BASE_URL}/uploads/post-images/${url}`;
+  };
+
+  const getAvatarUrl = (url: string) => {
+    if (!url) return "https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=";
+    if (url.startsWith('blob:')) return url;
+    if (url.startsWith('http')) return url;
+    return `${API_BASE_URL}${url}`;
+  };
+
+  // Rating stars component
+  const renderRatingStars = (selectedRate: number) => {
+    return (
+      <div className="flex">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            size={24}
+            className={`cursor-pointer ${
+              star <= selectedRate
+                ? "text-yellow-500 fill-yellow-500"
+                : "text-gray-300"
+            }`}
+            onClick={() => setSelectedRating(star)}
+          />
+        ))}
+      </div>
+    );
   };
 
   if (loading) {
@@ -271,7 +364,7 @@ const MyPosts: React.FC = () => {
                         className="h-7 text-xs flex-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleMarkAsPurchased(post.id);
+                          openPurchaseDialog(post.id);
                         }}
                       >
                         Mark as Purchased
@@ -289,6 +382,87 @@ const MyPosts: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Purchase Dialog */}
+      <Dialog open={isPurchaseDialogOpen} onOpenChange={setIsPurchaseDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>From whom did you purchase this item?</DialogTitle>
+            <DialogDescription>
+              Select the person who sold you the item. You can also rate your experience with them.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {loadingParticipants ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : chatParticipants.length > 0 ? (
+              <ScrollArea className="h-[240px] pr-4">
+                <div className="space-y-2">
+                  {chatParticipants.map(participant => (
+                    <div
+                      key={participant.id}
+                      className={`flex items-center p-3 rounded-md cursor-pointer ${
+                        selectedSellerId === participant.id 
+                          ? 'bg-accent border border-primary' 
+                          : 'hover:bg-accent/50'
+                      }`}
+                      onClick={() => setSelectedSellerId(participant.id)}
+                    >
+                      <Avatar className="h-10 w-10 mr-3">
+                        <AvatarImage src={getAvatarUrl(participant.avatar)} />
+                        <AvatarFallback>
+                          {participant.name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium">{participant.name}</p>
+                      </div>
+                      {selectedSellerId === participant.id && (
+                        <CheckCircle className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                <p>No chat participants found for this post</p>
+                <p className="text-sm mt-2">You can still mark it as purchased</p>
+              </div>
+            )}
+            
+            {selectedSellerId && (
+              <div className="mt-6">
+                <h4 className="text-sm font-medium mb-2">Rate your experience (optional)</h4>
+                <div className="flex items-center space-x-2">
+                  {renderRatingStars(selectedRating)}
+                  <span className="text-sm text-muted-foreground ml-2">
+                    {selectedRating > 0 ? `${selectedRating}/5` : 'No rating'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsPurchaseDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMarkAsPurchased}
+              disabled={!selectedSellerId}
+            >
+              Confirm Purchase
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Navigation />
     </div>

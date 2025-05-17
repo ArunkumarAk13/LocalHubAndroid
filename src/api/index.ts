@@ -113,8 +113,13 @@ export const postsAPI = {
     const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
-  markAsPurchased: async (postId: string) => {
-    const response = await api.patch(`/api/posts/${postId}/purchased`);
+  markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
+    const data: { sellerId?: string; rating?: number } = {};
+    
+    if (sellerId) data.sellerId = sellerId;
+    if (rating) data.rating = rating;
+    
+    const response = await api.patch(`/api/posts/${postId}/purchased`, data);
     return response.data;
   },
 };
@@ -346,6 +351,27 @@ export const usersAPI = {
       throw error;
     }
   },
+};
+
+// Chats API
+export const chatsAPI = {
+  getChatParticipantsForPost: async (postId: string) => {
+    try {
+      const response = await api.get(`/api/chats/participants/post/${postId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching chat participants:", error);
+      if (error.response) {
+        return error.response.data;
+      }
+      return { 
+        success: false, 
+        participants: [],
+        message: error.message || "Failed to fetch chat participants" 
+      };
+    }
+  },
+  // Add other chat-related API functions here
 };
 
 export default api;
