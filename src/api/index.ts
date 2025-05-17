@@ -113,22 +113,31 @@ export const postsAPI = {
     const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
-  markAsPurchased: async (postId: string) => {
-    try {      
-      console.log('Marking post as purchased:', postId);
+  markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
+    try {
+      const data: { sellerId?: string; rating?: number } = {};
       
-      // The backend only needs the post ID to toggle purchased status
-      // No need for additional parameters based on backend implementation
-      const response = await api.patch(`/api/posts/${postId}/purchased`, {});
-      console.log('Purchase response:', response.data);
+      if (sellerId) data.sellerId = sellerId;
+      if (rating) data.rating = rating;
+      
+      const response = await api.patch(`/api/posts/${postId}/purchased`, data);
+      
+      // If we have both a seller ID and rating, ensure the rating is created properly
+      if (sellerId && rating && rating > 0) {
+        try {
+          // Also create a direct rating for the user to ensure it's counted in their profile
+          await ratingsAPI.addRating(postId, rating, `Rating from purchased post ${postId}`, sellerId);
+          console.log('Successfully added rating for seller:', sellerId, 'with score:', rating);
+        } catch (ratingError) {
+          console.error('Failed to add rating for seller:', ratingError);
+          // Don't fail the whole operation if just the rating fails
+        }
+      }
       
       return response.data;
     } catch (error) {
       console.error("Error marking post as purchased:", error);
-      if (error.response) {
-        return error.response.data;
-      }
-      return { success: false, message: "Failed to mark post as purchased" };
+      throw error;
     }
   },
 };
@@ -136,93 +145,31 @@ export const postsAPI = {
 // Ratings API
 export const ratingsAPI = {
   addRating: async (postId: string, rating: number, comment?: string, userId?: string) => {
-    try {
-      // Include all fields with both naming conventions to ensure compatibility
-      const data = {
-        // Post info
-        post_id: postId, 
-        postId: postId,
-        
-        // Rating details
-        rating: rating,
-        comment: comment || ''
-      };
-      
-      console.log('Sending rating data:', data);
-      
-      const response = await api.post('/api/ratings', data);
-      console.log('Rating creation response:', response.data);
-      return response.data;
-    } catch (error) {
-      // Log the complete error for debugging
-      console.error("Error adding rating:", error);
-      console.error("Error response data:", error.response?.data);
-      
-      // Return a structured error response
-      return {
-        success: false,
-        message: error.response?.data?.message || error.message || "Failed to add rating"
-      };
+    const data = {
+      postId,
+      rating,
+      comment: comment || '',
+    };
+    
+    // If a specific user ID is provided, include it in the request
+    if (userId) {
+      data['userId'] = userId;
     }
+    
+    const response = await api.post('/api/ratings', data);
+    return response.data;
   },
-  
-  // Direct method to create a rating specifically for a seller
-  createSellerRating: async (sellerId: string, postId: string, rating: number, comment: string = "Good seller") => {
-    try {
-      console.log(`Creating seller rating: seller=${sellerId}, post=${postId}, rating=${rating}`);
-      
-      // Format data to match what the backend expects
-      // Convert postId to a number since the backend might expect a numeric ID
-      const numericPostId = parseInt(postId, 10);
-      
-      const data = {
-        post_id: isNaN(numericPostId) ? postId : numericPostId,
-        rating: rating, 
-        comment: comment || "Good seller"
-      };
-      
-      console.log('Using standard ratings endpoint with data:', data);
-      const response = await api.post('/api/ratings', data);
-      console.log('Seller rating response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to create seller rating:', error);
-      return { success: false, message: "Failed to create seller rating" };
-    }
-  },
-  
   getPostRatings: async (postId: string) => {
-    try {
-      const response = await api.get(`/api/ratings/post/${postId}`);
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching post ratings:", error);
-      return {
-        success: false,
-        ratings: [],
-        message: error.response?.data?.message || "Failed to fetch ratings"
-      };
-    }
-  }
+    const response = await api.get(`/api/ratings/post/${postId}`);
+    return response.data;
+  },
 };
 
 // Users API
 export const usersAPI = {
   getUserProfile: async (userId: string) => {
-    try {
-      // Add cache busting to ensure fresh data
-      const cacheBuster = new Date().getTime();
-      
-      console.log('Fetching user profile for:', userId);
-      const response = await api.get(`/api/users/${userId}?_=${cacheBuster}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      if (error.response) {
-        return error.response.data;
-      }
-      return { success: false, message: "Failed to fetch user profile" };
-    }
+    const response = await api.get(`/api/users/${userId}`);
+    return response.data;
   },
   
   updateProfile: async (data: { name: string; avatar: string }) => {
@@ -284,11 +231,12 @@ export const usersAPI = {
       localStorage.removeItem('subscribedCategories');
       
       // Add a random query parameter to prevent caching
-      const timestamp = new Date().getTime();
-      const response = await api.get(`/api/users/categories/subscribed?_=${timestamp}`);
+      const cacheBuster = new Date().getTime();
+      const response = await api.get(`/api/users/subscribed-categories?_=${cacheBuster}`);
+      console.log("API received subscribed categories:", response.data);
       
-      if (response.data.success && response.data.categories) {
-        console.log("API: Successfully fetched categories:", response.data.categories);
+      // Store successfully fetched categories in localStorage with a user identifier
+      if (response.data.success && Array.isArray(response.data.categories)) {
         localStorage.setItem('subscribedCategories', JSON.stringify(response.data.categories));
       }
       
@@ -296,24 +244,11 @@ export const usersAPI = {
     } catch (error: any) {
       console.error("Error fetching subscribed categories:", error);
       
-      // Try to get from localStorage as fallback
-      const cachedCategories = localStorage.getItem('subscribedCategories');
-      if (cachedCategories) {
-        console.log("Using cached categories from localStorage");
-        return {
-          success: true,
-          categories: JSON.parse(cachedCategories),
-          message: "Using cached data (offline)"
-        };
-      }
-      
-      if (error.response) {
-        return error.response.data;
-      }
+      // Don't use cached data for this scenario as it may belong to another user
       return { 
         success: false, 
         categories: [],
-        message: "Failed to fetch subscribed categories" 
+        message: error.response?.data?.message || "Failed to fetch subscribed categories" 
       };
     }
   },

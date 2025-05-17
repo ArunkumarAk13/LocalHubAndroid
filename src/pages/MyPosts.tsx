@@ -234,65 +234,41 @@ const MyPosts: React.FC = () => {
       setIsRatingDialogOpen(false);
       
       // Show loading indicator
-      const loadingToast = toast.loading("Processing your purchase and rating...");
+      toast.loading("Processing your purchase...");
       
-      try {
-        // Step 1: Create a seller rating by rating the post
-        try {
-          const ratingResponse = await ratingsAPI.createSellerRating(
-            selectedSeller.id, 
-            selectedPostId,
-            rating
-          );
-          console.log('Seller rating response:', ratingResponse);
-          
-          if (!ratingResponse.success) {
-            console.error('Rating not successful:', ratingResponse.message);
-          }
-        } catch (ratingError) {
-          console.error('Error creating seller rating:', ratingError);
-          // Continue with the process even if this fails
-        }
-
-        // Step 2: Mark the post as purchased
-        const purchaseResponse = await postsAPI.markAsPurchased(selectedPostId);
-        
-        if (!purchaseResponse.success) {
-          toast.dismiss(loadingToast);
-          toast.error(purchaseResponse.message || "Failed to mark post as purchased");
-          return;
-        }
-        
+      // Mark the post as purchased with the selected seller and rating
+      const response = await postsAPI.markAsPurchased(
+        selectedPostId, 
+        selectedSeller.id,
+        rating // Pass the selected rating
+      );
+      
+      if (response.success) {
         // Update local post state
         setPosts(posts.map(post => 
           post.id === selectedPostId ? { ...post, purchased: true } : post
         ));
         
-        toast.dismiss(loadingToast);
-        toast.success("Post marked as purchased and seller rated!");
-        toast.success(`You gave ${selectedSeller.name} a ${rating}-star rating`);
-        
-        // Wait a bit and then fetch the updated user profile
-        setTimeout(async () => {
-          try {
-            // Check if profile was updated
-            const userProfile = await usersAPI.getUserProfile(selectedSeller.id);
-            if (userProfile.success && userProfile.user) {
-              console.log('Updated seller profile:', userProfile.user);
-            }
-          } catch (error) {
-            console.error('Error fetching updated profile:', error);
+        // After successful rating, refresh the seller's profile data to get updated rating
+        try {
+          const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
+          if (userProfileResponse.success) {
+            console.log('Updated user profile data:', userProfileResponse.user);
           }
-        }, 2000);
+        } catch (profileError) {
+          console.error('Failed to refresh user profile:', profileError);
+        }
         
-      } catch (error: any) {
-        console.error("Error processing purchase:", error);
-        toast.dismiss(loadingToast);
-        toast.error(error.message || "An error occurred");
+        toast.dismiss(); // Dismiss loading toast
+        toast.success("Post marked as purchased and seller rated");
+      } else {
+        toast.dismiss(); // Dismiss loading toast
+        toast.error(response.message || "Failed to mark post as purchased");
       }
-    } catch (outerError: any) {
-      console.error("Outer error handling purchase:", outerError);
-      toast.error(outerError.message || "An unexpected error occurred");
+    } catch (error: any) {
+      console.error("Error processing purchase:", error);
+      toast.dismiss(); // Dismiss loading toast
+      toast.error(error.message || "An error occurred");
     }
   };
 
