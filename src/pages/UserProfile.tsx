@@ -93,32 +93,20 @@ const UserProfile = () => {
     if (!userId) return;
     
     try {
-      // Add cache-busting parameter to avoid stale data
-      const timestamp = new Date().getTime();
+      console.log('Refreshing user profile:', userId);
       
-      // Use a direct API call to bypass any caching
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}?_=${timestamp}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
+      // Use the usersAPI to avoid CORS issues
+      const response = await usersAPI.getUserProfile(userId);
       
-      if (!response.ok) throw new Error('Failed to fetch user data');
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log("Fresh user profile data:", data.user);
+      if (response.success && response.user) {
+        console.log("Fresh user profile data:", response.user);
         setUserData({
-          id: data.user.id,
-          name: data.user.name,
-          avatar: data.user.avatar || 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
-          rating: data.user.rating || 0,
-          postCount: data.user.postCount || 0,
-          createdAt: data.user.created_at,
+          id: response.user.id,
+          name: response.user.name,
+          avatar: response.user.avatar || 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
+          rating: response.user.rating || 0,
+          postCount: response.user.postCount || 0,
+          createdAt: response.user.created_at,
           badges: ['Verified']
         });
       }

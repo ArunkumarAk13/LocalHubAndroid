@@ -211,20 +211,15 @@ const Profile = () => {
   const refreshUserRating = async () => {
     if (user) {
       try {
-        // Add cache-busting parameter
-        const timestamp = new Date().getTime();
-        const response = await fetch(`${API_BASE_URL}/api/users/${user.id}?_=${timestamp}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-          }
-        });
+        console.log('Refreshing user rating for:', user.id);
         
-        const data = await response.json();
-        if (data.success && data.user && data.user.rating !== undefined) {
-          console.log('Refreshed user rating:', data.user.rating);
+        // Use the usersAPI instead of direct fetch to avoid CORS issues
+        const response = await usersAPI.getUserProfile(user.id);
+        
+        if (response.success && response.user && response.user.rating !== undefined) {
+          console.log('Refreshed user rating:', response.user.rating);
           // Update the user's rating in the auth context
-          user.rating = data.user.rating;
+          user.rating = response.user.rating;
           // Force a re-render
           setMyPosts([...myPosts]);
         }
