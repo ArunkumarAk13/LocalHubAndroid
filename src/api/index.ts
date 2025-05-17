@@ -70,7 +70,11 @@ api.interceptors.response.use(
 export const authAPI = {
   login: async (phoneNumber: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/login', { phoneNumber, password });
+      // Send as phone_number to match the database column name
+      const response = await api.post('/api/auth/login', { 
+        phone_number: phoneNumber, 
+        password 
+      });
       return response.data;
     } catch (error: any) {
       console.error("Login API error:", error.response || error);
