@@ -258,41 +258,37 @@ const MyPosts: React.FC = () => {
         toast.dismiss(loadingToast);
         toast.success("Post marked as purchased successfully");
         
+        // Immediately show a message about the rating that was given
+        toast(`You gave ${selectedSeller.name} a ${rating}-star rating`);
+        
         // The backend needs time to process the rating update
         // Wait a bit longer to fetch the updated profile data
         setTimeout(async () => {
           try {
-            // Add cache-busting query parameter
-            const timestamp = new Date().getTime();
-            const response = await fetch(`${API_BASE_URL}/api/users/${selectedSeller.id}?_=${timestamp}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                'Cache-Control': 'no-cache, no-store, must-revalidate'
-              }
-            });
+            // Use the API module instead of direct fetch to avoid CORS issues
+            const userProfileResponse = await usersAPI.getUserProfile(selectedSeller.id);
             
-            if (response.ok) {
-              const data = await response.json();
-              if (data.success && data.user) {
-                console.log('Updated seller profile data:', data.user);
-                
-                // Parse rating value safely
-                let numericRating = 0;
-                if (data.user.rating !== undefined) {
-                  numericRating = typeof data.user.rating === 'string' 
-                    ? parseFloat(data.user.rating) 
-                    : data.user.rating;
-                }
-                
-                if (!isNaN(numericRating)) {
-                  toast(`${selectedSeller.name}'s rating: ${numericRating.toFixed(1)} stars`);
-                }
+            if (userProfileResponse.success && userProfileResponse.user) {
+              console.log('Updated seller profile data:', userProfileResponse.user);
+              
+              // Parse rating value safely
+              let numericRating = 0;
+              if (userProfileResponse.user.rating !== undefined) {
+                numericRating = typeof userProfileResponse.user.rating === 'string' 
+                  ? parseFloat(userProfileResponse.user.rating) 
+                  : userProfileResponse.user.rating;
+              }
+              
+              if (!isNaN(numericRating)) {
+                toast(`${selectedSeller.name}'s updated profile rating: ${numericRating.toFixed(1)} stars`);
               }
             }
           } catch (error) {
             console.error('Error fetching updated profile:', error);
+            // Fallback message if we can't get the updated rating
+            toast(`Rating submitted. Visit ${selectedSeller.name}'s profile to see their updated rating.`);
           }
-        }, 2000); // Wait 2 seconds before fetching updated profile
+        }, 3000); // Wait 3 seconds before fetching updated profile
         
       } catch (error: any) {
         console.error("Error processing purchase:", error);

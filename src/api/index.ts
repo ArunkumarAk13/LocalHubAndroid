@@ -196,8 +196,40 @@ export const ratingsAPI = {
 // Users API
 export const usersAPI = {
   getUserProfile: async (userId: string) => {
-    const response = await api.get(`/api/users/${userId}`);
-    return response.data;
+    // Add retry logic for reliability
+    let attempts = 0;
+    const maxAttempts = 3;
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        // Add cache busting to ensure fresh data
+        const cacheBuster = new Date().getTime();
+        const url = `${API_BASE_URL}/api/users/${userId}?_=${cacheBuster}`;
+        
+        console.log(`Fetching user profile (attempt ${attempts}): ${url}`);
+        
+        const response = await api.get(url);
+        console.log('User profile response:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching user profile (attempt ${attempts}):`, error);
+        
+        if (attempts >= maxAttempts) {
+          console.error('Max attempts reached, giving up');
+          if (error.response) {
+            return error.response.data || { success: false, message: "Failed to fetch user profile" };
+          }
+          return { success: false, message: "Failed to fetch user profile" };
+        }
+        
+        // Wait before retrying
+        await delay(1000 * attempts);
+      }
+    }
+    
+    return { success: false, message: "Failed to fetch user profile after retries" };
   },
   
   updateProfile: async (data: { name: string; avatar: string }) => {
