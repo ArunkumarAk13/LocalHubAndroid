@@ -22,7 +22,6 @@ import { Label } from "@/components/ui/label";
 // Define the form schema with validation
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters" })
     .refine(
       (password) => /[A-Z]/.test(password),
@@ -38,7 +37,7 @@ const formSchema = z.object({
     ),
   confirmPassword: z.string().min(8, { message: "Confirm password is required" }),
   phoneNumber: z.string().length(10, { message: "Phone number must be exactly 10 digits" })
-    .refine((val) => /^\d+$/.test(val),),
+    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -62,7 +61,6 @@ const Register = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      email: "",
       password: "",
       confirmPassword: "",
       phoneNumber: "",
@@ -110,7 +108,7 @@ const Register = () => {
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    await register(values.name, values.email, values.password, values.phoneNumber);
+    await register(values.name, values.phoneNumber, values.password);
   };
 
   return (
@@ -148,28 +146,7 @@ const Register = () => {
                   )}
                 />
                 
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">Email</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <Mail size={18} />
-                          </div>
-                          <Input 
-                            placeholder="email@example.com" 
-                            className="pl-10 h-12 text-base" 
-                            {...field} 
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
                 
                 <FormField
                   control={form.control}

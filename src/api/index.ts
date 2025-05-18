@@ -70,10 +70,9 @@ api.interceptors.response.use(
 export const authAPI = {
   login: async (phoneNumber: string, password: string) => {
     try {
-      // Send both parameters to support our modified backend
+      // Only use phone number for login
       const response = await api.post('/api/auth/login', { 
         phone_number: phoneNumber,
-        email: phoneNumber,  // Also try as email for backward compatibility
         password 
       });
       return response.data;
@@ -94,8 +93,8 @@ export const authAPI = {
       };
     }
   },
-  register: async (name: string, email: string, password: string, phoneNumber: string) => {
-    const response = await api.post('/api/auth/register', { name, email, password, phoneNumber });
+  register: async (name: string, phoneNumber: string, password: string) => {
+    const response = await api.post('/api/auth/register', { name, password, phone_number: phoneNumber });
     return response.data;
   },
   getCurrentUser: async () => {

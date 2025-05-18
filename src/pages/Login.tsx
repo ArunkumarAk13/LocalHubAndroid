@@ -21,7 +21,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Define the form schema
 const formSchema = z.object({
-  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number" }),
+  phoneNumber: z.string()
+    .length(10, { message: "Phone number must be exactly 10 digits" })
+    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
@@ -99,9 +101,16 @@ const Login = () => {
                             <Phone size={18} />
                           </div>
                           <Input 
-                            placeholder="Enter your phone number" 
+                            placeholder="Enter 10 digit number" 
                             className={`pl-10 h-12 text-base ${loginError ? "border-destructive focus-visible:ring-destructive" : ""}`} 
-                            {...field} 
+                            value={field.value}
+                            onChange={(e) => {
+                              // Only allow digits and limit to 10 characters
+                              const sanitizedValue = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              field.onChange(sanitizedValue);
+                            }}
+                            maxLength={10}
+                            inputMode="numeric"
                           />
                         </div>
                       </FormControl>

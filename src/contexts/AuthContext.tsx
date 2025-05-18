@@ -18,7 +18,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   login: (phoneNumber: string, password: string) => Promise<any>;
-  register: (name: string, email: string, password: string, phoneNumber: string) => Promise<any>;
+  register: (name: string, phoneNumber: string, password: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: { name: string; avatar: string; phoneNumber: string }) => Promise<any>;
   isAuthenticated: boolean;
@@ -96,13 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Register function
-  const register = async (name: string, email: string, password: string, phoneNumber: string) => {
+  const register = async (name: string, phoneNumber: string, password: string) => {
     try {
       // Clear previous user data first
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
       
-      const response = await authAPI.register(name, email, password, phoneNumber);
+      const response = await authAPI.register(name, phoneNumber, password);
       
       if (response.success) {
         setUser(response.user);
