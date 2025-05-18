@@ -19,6 +19,9 @@ interface AuthContextType {
   user: User | null;
   login: (phoneNumber: string, password: string) => Promise<any>;
   register: (name: string, phoneNumber: string, password: string) => Promise<any>;
+  requestOTP: (phoneNumber: string) => Promise<any>;
+  verifyOTP: (phoneNumber: string, otp: string) => Promise<any>;
+  registerWithOTP: (name: string, phoneNumber: string, password: string, otp: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: { name: string; avatar: string; phoneNumber: string }) => Promise<any>;
   isAuthenticated: boolean;
@@ -121,6 +124,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Request OTP function
+  const requestOTP = async (phoneNumber: string) => {
+    try {
+      const response = await authAPI.requestOTP(phoneNumber);
+      if (response.success) {
+        toast.success('OTP sent successfully');
+        return { success: true };
+      } else {
+        toast.error(response.message || 'Failed to send OTP');
+        return { success: false, message: response.message };
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to send OTP');
+      console.error('OTP request error:', error);
+      return { success: false, message: 'Failed to send OTP' };
+    }
+  };
+
+  // Verify OTP function
+  const verifyOTP = async (phoneNumber: string, otp: string) => {
+    try {
+      const response = await authAPI.verifyOTP(phoneNumber, otp);
+      if (response.success) {
+        return { success: true };
+      } else {
+        toast.error(response.message || 'Invalid OTP');
+        return { success: false, message: response.message };
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'OTP verification failed');
+      console.error('OTP verification error:', error);
+      return { success: false, message: 'OTP verification failed' };
+    }
+  };
+
+  // Register with OTP function
+  const registerWithOTP = async (name: string, phoneNumber: string, password: string, otp: string) => {
+    try {
+      // Clear previous user data first
+      localStorage.removeItem('subscribedCategories');
+      localStorage.removeItem('userNotifications');
+      
+      const response = await authAPI.registerWithOTP(name, phoneNumber, password, otp);
+      
+      if (response.success) {
+        setUser(response.user);
+        localStorage.setItem('token', response.token);
+        toast.success('Registration successful!');
+        navigate('/');
+        return true;
+      } else {
+        toast.error(response.message || 'Registration failed');
+        return false;
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Registration failed');
+      console.error('Registration with OTP error:', error);
+      return false;
+    }
+  };
+
   // Logout function
   const logout = () => {
     setUser(null);
@@ -159,6 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         login,
         register,
+        requestOTP,
+        verifyOTP,
+        registerWithOTP,
         logout,
         updateProfile,
         isAuthenticated: !!user,

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Phone } from "lucide-react";
+import { Lock, User, ArrowRight, Eye, EyeOff, Phone, Loader2, ArrowLeft } from "lucide-react";
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { OTPInput } from "@/components/ui/otp-input";
 
 // Define the form schema with validation
 const formSchema = z.object({
@@ -43,12 +45,24 @@ const formSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Registration step states
+enum RegistrationStep {
+  FORM = 'form',
+  OTP_VERIFICATION = 'otp_verification'
+}
+
 const Register = () => {
-  const { register } = useAuth();
+  const { register, requestOTP, verifyOTP, registerWithOTP } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [registrationStep, setRegistrationStep] = useState<RegistrationStep>(RegistrationStep.FORM);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formValues, setFormValues] = useState<z.infer<typeof formSchema> | null>(null);
+  const [otpResendCountdown, setOtpResendCountdown] = useState(0);
+  
   const [passwordRequirements, setPasswordRequirements] = useState({
     minLength: false,
     hasUppercase: false,
@@ -105,10 +119,103 @@ const Register = () => {
       hasSymbol: /[^A-Za-z0-9]/.test(password)
     });
   };
+  
+  // Start OTP countdown timer
+  const startOtpCountdown = () => {
+    setOtpResendCountdown(60);
+    const timer = setInterval(() => {
+      setOtpResendCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    await register(values.name, values.phoneNumber, values.password);
+    setFormValues(values);
+    setIsLoading(true);
+    
+    try {
+      // Request OTP for the phone number
+      const otpResponse = await requestOTP(values.phoneNumber);
+      
+      if (otpResponse.success) {
+        // Move to OTP verification step
+        setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
+        startOtpCountdown();
+      } else {
+        // Handle OTP request failure
+        setOtpError(otpResponse.message || "Failed to send OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error requesting OTP:', error);
+      setOtpError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle OTP resend
+  const handleResendOTP = async () => {
+    if (otpResendCountdown > 0 || !formValues) return;
+    
+    setIsLoading(true);
+    setOtpError(null);
+    
+    try {
+      const otpResponse = await requestOTP(formValues.phoneNumber);
+      
+      if (otpResponse.success) {
+        startOtpCountdown();
+      } else {
+        setOtpError(otpResponse.message || "Failed to resend OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+      setOtpError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Handle OTP verification and complete registration
+  const handleVerifyOTP = async (otp: string) => {
+    if (!formValues) return;
+    
+    setIsLoading(true);
+    setOtpError(null);
+    
+    try {
+      // First verify the OTP
+      const verifyResponse = await verifyOTP(formValues.phoneNumber, otp);
+      
+      if (verifyResponse.success) {
+        // Complete registration with OTP
+        await registerWithOTP(
+          formValues.name, 
+          formValues.phoneNumber, 
+          formValues.password, 
+          otp
+        );
+      } else {
+        setOtpError(verifyResponse.message || "Invalid OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      setOtpError("Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Go back to form step
+  const handleBackToForm = () => {
+    setRegistrationStep(RegistrationStep.FORM);
+    setOtpError(null);
   };
 
   return (
@@ -116,201 +223,289 @@ const Register = () => {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-primary mb-2">Create Account</h1>
-          <p className="text-muted-foreground">Join our community today</p>
+          <p className="text-muted-foreground">
+            {registrationStep === RegistrationStep.FORM 
+              ? 'Join our community today' 
+              : 'Verify your phone number'}
+          </p>
         </div>
         
         <Card className="border-none shadow-lg">
           <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">Full Name</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <User size={18} />
+            {/* Registration Form */}
+            {registrationStep === RegistrationStep.FORM && (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base">Full Name</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                              <User size={18} />
+                            </div>
+                            <Input 
+                              placeholder="John Doe" 
+                              className="pl-10 h-12 text-base" 
+                              {...field} 
+                            />
                           </div>
-                          <Input 
-                            placeholder="John Doe" 
-                            className="pl-10 h-12 text-base" 
-                            {...field} 
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-
-                
-                <FormField
-                  control={form.control}
-                  name="phoneNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">Phone Number</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <Phone size={18} />
-                          </div>
-                          <Input 
-                            placeholder="Enter 10 digit number" 
-                            className={`pl-10 h-12 text-base ${phoneError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                            value={field.value}
-                            onChange={(e) => handlePhoneChange(e, field.onChange)}
-                            maxLength={10}
-                            inputMode="numeric"
-                          />
-                        </div>
-                      </FormControl>
-                      {phoneError && <p className="text-sm font-medium text-destructive mt-1">{phoneError}</p>}
-                      <div className="hidden">
+                        </FormControl>
                         <FormMessage />
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base">Phone Number</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                              <Phone size={18} />
+                            </div>
+                            <Input 
+                              placeholder="Enter 10 digit number" 
+                              className={`pl-10 h-12 text-base ${phoneError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                              value={field.value}
+                              onChange={(e) => handlePhoneChange(e, field.onChange)}
+                              maxLength={10}
+                              inputMode="numeric"
+                            />
+                          </div>
+                        </FormControl>
+                        {phoneError && <p className="text-sm font-medium text-destructive mt-1">{phoneError}</p>}
+                        <div className="hidden">
+                          <FormMessage />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base">Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                              <Lock size={18} />
+                            </div>
+                            <Input 
+                              type={showPassword ? "text" : "password"}
+                              placeholder="••••••••" 
+                              className="pl-10 h-12 text-base" 
+                              {...field} 
+                              onChange={(e) => {
+                                field.onChange(e);
+                                checkPasswordRequirements(e.target.value);
+                              }}
+                              onFocus={() => setIsPasswordFocused(true)}
+                              onBlur={(e) => {
+                                // Only hide requirements if field is empty
+                                if (!e.target.value) {
+                                  setIsPasswordFocused(false);
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              className="absolute top-1/2 -translate-y-1/2 right-0 px-3 text-muted-foreground bg-transparent hover:bg-transparent"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        {isPasswordFocused && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div className="flex items-center text-xs">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.minLength ? 'bg-green-500' : 'bg-red-500'}`}>
+                                {passwordRequirements.minLength ? (
+                                  <span className="text-white text-[10px]">✓</span>
+                                ) : (
+                                  <span className="text-white text-[10px]">✕</span>
+                                )}
+                              </div>
+                              <span className={passwordRequirements.minLength ? 'text-green-700' : 'text-red-700'}>
+                                Minimum 8 characters
+                              </span>
+                            </div>
+                            <div className="flex items-center text-xs">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasUppercase ? 'bg-green-500' : 'bg-red-500'}`}>
+                                {passwordRequirements.hasUppercase ? (
+                                  <span className="text-white text-[10px]">✓</span>
+                                ) : (
+                                  <span className="text-white text-[10px]">✕</span>
+                                )}
+                              </div>
+                              <span className={passwordRequirements.hasUppercase ? 'text-green-700' : 'text-red-700'}>
+                                One uppercase letter
+                              </span>
+                            </div>
+                            <div className="flex items-center text-xs">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasNumber ? 'bg-green-500' : 'bg-red-500'}`}>
+                                {passwordRequirements.hasNumber ? (
+                                  <span className="text-white text-[10px]">✓</span>
+                                ) : (
+                                  <span className="text-white text-[10px]">✕</span>
+                                )}
+                              </div>
+                              <span className={passwordRequirements.hasNumber ? 'text-green-700' : 'text-red-700'}>
+                                One number
+                              </span>
+                            </div>
+                            <div className="flex items-center text-xs">
+                              <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasSymbol ? 'bg-green-500' : 'bg-red-500'}`}>
+                                {passwordRequirements.hasSymbol ? (
+                                  <span className="text-white text-[10px]">✓</span>
+                                ) : (
+                                  <span className="text-white text-[10px]">✕</span>
+                                )}
+                              </div>
+                              <span className={passwordRequirements.hasSymbol ? 'text-green-700' : 'text-red-700'}>
+                                One symbol
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base">Confirm Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                              <Lock size={18} />
+                            </div>
+                            <Input 
+                              type={showConfirmPassword ? "text" : "password"}
+                              placeholder="••••••••" 
+                              className="pl-10 h-12 text-base" 
+                              {...field} 
+                            />
+                            <Button
+                              type="button"
+                              className="absolute top-1/2 -translate-y-1/2 right-0 px-3 text-muted-foreground bg-transparent hover:bg-transparent"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 text-base font-medium bg-primary hover:bg-primary/90"
+                    disabled={(!!phoneError || isLoading) && form.formState.isSubmitting}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending OTP...
+                      </>
+                    ) : (
+                      <>
+                        Continue <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </Form>
+            )}
+            
+            {/* OTP Verification */}
+            {registrationStep === RegistrationStep.OTP_VERIFICATION && formValues && (
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl font-semibold mb-2">Verify Your Phone Number</h2>
+                  <p className="text-muted-foreground text-sm">
+                    We've sent a 6-digit code to {formValues.phoneNumber}
+                  </p>
+                </div>
                 
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <Lock size={18} />
-                          </div>
-                          <Input 
-                            type={showPassword ? "text" : "password"}
-                            placeholder="••••••••" 
-                            className="pl-10 h-12 text-base" 
-                            {...field} 
-                            onChange={(e) => {
-                              field.onChange(e);
-                              checkPasswordRequirements(e.target.value);
-                            }}
-                            onFocus={() => setIsPasswordFocused(true)}
-                            onBlur={(e) => {
-                              // Only hide requirements if field is empty
-                              if (!e.target.value) {
-                                setIsPasswordFocused(false);
-                              }
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            className="absolute top-1/2 -translate-y-1/2 right-0 px-3 text-muted-foreground bg-transparent hover:bg-transparent"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </Button>
-                        </div>
-                      </FormControl>
-                      {isPasswordFocused && (
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <div className="flex items-center text-xs">
-                            <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.minLength ? 'bg-green-500' : 'bg-red-500'}`}>
-                              {passwordRequirements.minLength ? (
-                                <span className="text-white text-[10px]">✓</span>
-                              ) : (
-                                <span className="text-white text-[10px]">✕</span>
-                              )}
-                            </div>
-                            <span className={passwordRequirements.minLength ? 'text-green-700' : 'text-red-700'}>
-                              Minimum 8 characters
-                            </span>
-                          </div>
-                          <div className="flex items-center text-xs">
-                            <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasUppercase ? 'bg-green-500' : 'bg-red-500'}`}>
-                              {passwordRequirements.hasUppercase ? (
-                                <span className="text-white text-[10px]">✓</span>
-                              ) : (
-                                <span className="text-white text-[10px]">✕</span>
-                              )}
-                            </div>
-                            <span className={passwordRequirements.hasUppercase ? 'text-green-700' : 'text-red-700'}>
-                              One uppercase letter
-                            </span>
-                          </div>
-                          <div className="flex items-center text-xs">
-                            <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasNumber ? 'bg-green-500' : 'bg-red-500'}`}>
-                              {passwordRequirements.hasNumber ? (
-                                <span className="text-white text-[10px]">✓</span>
-                              ) : (
-                                <span className="text-white text-[10px]">✕</span>
-                              )}
-                            </div>
-                            <span className={passwordRequirements.hasNumber ? 'text-green-700' : 'text-red-700'}>
-                              One number
-                            </span>
-                          </div>
-                          <div className="flex items-center text-xs">
-                            <div className={`w-4 h-4 rounded-full flex items-center justify-center mr-2 ${passwordRequirements.hasSymbol ? 'bg-green-500' : 'bg-red-500'}`}>
-                              {passwordRequirements.hasSymbol ? (
-                                <span className="text-white text-[10px]">✓</span>
-                              ) : (
-                                <span className="text-white text-[10px]">✕</span>
-                              )}
-                            </div>
-                            <span className={passwordRequirements.hasSymbol ? 'text-green-700' : 'text-red-700'}>
-                              One symbol
-                            </span>
-                          </div>
-                        </div>
+                {otpError && (
+                  <Alert variant="destructive" className="mb-6">
+                    <AlertDescription>{otpError}</AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-4">
+                  <Label className="text-base" htmlFor="otp">Enter verification code</Label>
+                  <OTPInput 
+                    length={6} 
+                    onComplete={handleVerifyOTP} 
+                    isError={!!otpError}
+                    disabled={isLoading}
+                  />
+                  
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={handleResendOTP}
+                      disabled={otpResendCountdown > 0 || isLoading}
+                      className="text-sm"
+                    >
+                      {otpResendCountdown > 0 
+                        ? `Resend code in ${otpResendCountdown}s` 
+                        : 'Resend verification code'}
+                    </Button>
+                  </div>
+                  
+                  <div className="flex space-x-3 mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={handleBackToForm}
+                      disabled={isLoading}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      className="flex-1"
+                      onClick={() => {}}
+                      disabled={true}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          Complete Registration
+                        </>
                       )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">Confirm Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <Lock size={18} />
-                          </div>
-                          <Input 
-                            type={showConfirmPassword ? "text" : "password"}
-                            placeholder="••••••••" 
-                            className="pl-10 h-12 text-base" 
-                            {...field} 
-                          />
-                          <Button
-                            type="button"
-                            className="absolute top-1/2 -translate-y-1/2 right-0 px-3 text-muted-foreground bg-transparent hover:bg-transparent"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          >
-                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </Button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 text-base font-medium bg-primary hover:bg-primary/90"
-                  disabled={!!phoneError && form.formState.isSubmitting}
-                >
-                  Create Account <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </form>
-            </Form>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex justify-center border-t pt-6">
             <p className="text-sm text-muted-foreground">

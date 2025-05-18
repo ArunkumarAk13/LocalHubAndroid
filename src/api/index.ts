@@ -97,6 +97,68 @@ export const authAPI = {
     const response = await api.post('/api/auth/register', { name, password, phone_number: phoneNumber });
     return response.data;
   },
+  requestOTP: async (phoneNumber: string) => {
+    try {
+      const response = await api.post('/api/auth/request-otp', { phone_number: phoneNumber });
+      return response.data;
+    } catch (error: any) {
+      console.error("OTP request error:", error.response || error);
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || "Failed to send OTP"
+        };
+      }
+      return {
+        success: false,
+        message: "Connection error. Please check your internet connection."
+      };
+    }
+  },
+  verifyOTP: async (phoneNumber: string, otp: string) => {
+    try {
+      const response = await api.post('/api/auth/verify-otp', { 
+        phone_number: phoneNumber, 
+        otp_code: otp 
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("OTP verification error:", error.response || error);
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || "Invalid OTP code"
+        };
+      }
+      return {
+        success: false,
+        message: "Connection error. Please check your internet connection."
+      };
+    }
+  },
+  registerWithOTP: async (name: string, phoneNumber: string, password: string, otp: string) => {
+    try {
+      const response = await api.post('/api/auth/register-with-otp', { 
+        name, 
+        password, 
+        phone_number: phoneNumber,
+        otp_code: otp 
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Registration with OTP error:", error.response || error);
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || "Registration failed"
+        };
+      }
+      return {
+        success: false,
+        message: "Connection error. Please check your internet connection."
+      };
+    }
+  },
   getCurrentUser: async () => {
     const response = await api.get('/api/auth/me');
     return response.data;
