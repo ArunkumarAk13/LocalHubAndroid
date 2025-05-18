@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,6 +82,25 @@ const Register = () => {
     mode: "onChange", // Enable validation on change
   });
 
+  // Add the recaptcha container to the DOM
+  useEffect(() => {
+    // Create invisible recaptcha container if needed
+    if (!document.getElementById('recaptcha-container')) {
+      const recaptchaContainer = document.createElement('div');
+      recaptchaContainer.id = 'recaptcha-container';
+      recaptchaContainer.style.display = 'none';
+      document.body.appendChild(recaptchaContainer);
+    }
+    
+    return () => {
+      // Clean up on unmount if needed
+      const container = document.getElementById('recaptcha-container');
+      if (container) {
+        container.remove();
+      }
+    };
+  }, []);
+
   // Function to validate phone number in real time
   const validatePhoneNumber = (value: string) => {
     if (value.length > 10) {
@@ -140,7 +159,7 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      // Request OTP for the phone number
+      // Request OTP using Firebase
       const otpResponse = await requestOTP(values.phoneNumber);
       
       if (otpResponse.success) {
@@ -190,17 +209,21 @@ const Register = () => {
     setOtpError(null);
     
     try {
-      // First verify the OTP
+      // First verify the OTP with Firebase
       const verifyResponse = await verifyOTP(formValues.phoneNumber, otp);
       
       if (verifyResponse.success) {
-        // Complete registration with OTP
-        await registerWithOTP(
+        // Complete registration with verified OTP
+        const registerResponse = await registerWithOTP(
           formValues.name, 
           formValues.phoneNumber, 
           formValues.password, 
           otp
         );
+        
+        if (!registerResponse) {
+          setOtpError("Failed to complete registration. Please try again.");
+        }
       } else {
         setOtpError(verifyResponse.message || "Invalid OTP. Please try again.");
       }
@@ -229,6 +252,9 @@ const Register = () => {
               : 'Verify your phone number'}
           </p>
         </div>
+        
+        {/* Hidden recaptcha container for Firebase */}
+        <div id="recaptcha-container" className="hidden"></div>
         
         <Card className="border-none shadow-lg">
           <CardContent className="pt-6">

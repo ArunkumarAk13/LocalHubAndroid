@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
 import { authAPI } from '../api';
+import { sendOTP, verifyOTP as firebaseVerifyOTP, signOutUser } from '../services/firebase';
 
 // Define the User type
 export interface User {
@@ -12,6 +13,7 @@ export interface User {
   phone_number: string;
   rating?: number;
   created_at?: string;
+  firebaseUid?: string;
 }
 
 // Define the context type
@@ -124,10 +126,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Request OTP function
+  // Request OTP function - Using Firebase
   const requestOTP = async (phoneNumber: string) => {
     try {
-      const response = await authAPI.requestOTP(phoneNumber);
+      // First, add an invisible recaptcha container if it doesn't exist
+      if (!document.getElementById('recaptcha-container')) {
+        const recaptchaContainer = document.createElement('div');
+        recaptchaContainer.id = 'recaptcha-container';
+        recaptchaContainer.style.display = 'none';
+        document.body.appendChild(recaptchaContainer);
+      }
+      
+      // Call the Firebase sendOTP function
+      const response = await sendOTP(phoneNumber);
+      
       if (response.success) {
         toast.success('OTP sent successfully');
         return { success: true };
@@ -136,40 +148,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: response.message };
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to send OTP');
+      toast.error(error.message || 'Failed to send OTP');
       console.error('OTP request error:', error);
       return { success: false, message: 'Failed to send OTP' };
     }
   };
 
-  // Verify OTP function
+  // Verify OTP function - Using Firebase
   const verifyOTP = async (phoneNumber: string, otp: string) => {
     try {
-      const response = await authAPI.verifyOTP(phoneNumber, otp);
+      // Call the Firebase verifyOTP function
+      const response = await firebaseVerifyOTP(otp);
+      
       if (response.success) {
+        // Store the Firebase UID for later use during registration
+        localStorage.setItem('tempFirebaseUid', response.user.uid);
         return { success: true };
       } else {
         toast.error(response.message || 'Invalid OTP');
         return { success: false, message: response.message };
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'OTP verification failed');
+      toast.error(error.message || 'OTP verification failed');
       console.error('OTP verification error:', error);
       return { success: false, message: 'OTP verification failed' };
     }
   };
 
-  // Register with OTP function
+  // Register with OTP function - Using Firebase
   const registerWithOTP = async (name: string, phoneNumber: string, password: string, otp: string) => {
     try {
       // Clear previous user data first
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
       
-      const response = await authAPI.registerWithOTP(name, phoneNumber, password, otp);
+      // Get the Firebase UID from verification
+      const firebaseUid = localStorage.getItem('tempFirebaseUid');
+      
+      if (!firebaseUid) {
+        toast.error('Phone verification required before registration');
+        return false;
+      }
+      
+      // Call your backend API with the Firebase UID for additional security
+      const response = await authAPI.registerWithOTP(name, phoneNumber, password, otp, firebaseUid);
       
       if (response.success) {
-        setUser(response.user);
+        // Clear the temporary Firebase UID
+        localStorage.removeItem('tempFirebaseUid');
+        
+        // Set user data
+        setUser({
+          ...response.user,
+          firebaseUid
+        });
+        
         localStorage.setItem('token', response.token);
         toast.success('Registration successful!');
         navigate('/');
@@ -186,14 +219,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Logout function
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-    // Clear user-specific stored data
-    localStorage.removeItem('subscribedCategories');
-    localStorage.removeItem('userNotifications');
-    toast.success('You have been logged out');
-    navigate('/login');
+  const logout = async () => {
+    try {
+      // Sign out from Firebase
+      await signOutUser();
+      
+      // Clear local user data
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('subscribedCategories');
+      localStorage.removeItem('userNotifications');
+      
+      toast.success('You have been logged out');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      // Even if Firebase logout fails, clear local data
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('subscribedCategories');
+      localStorage.removeItem('userNotifications');
+      
+      navigate('/login');
+    }
   };
 
   const updateProfile = async (data: { name: string; avatar: string; phoneNumber: string }) => {

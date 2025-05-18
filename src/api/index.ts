@@ -136,13 +136,14 @@ export const authAPI = {
       };
     }
   },
-  registerWithOTP: async (name: string, phoneNumber: string, password: string, otp: string) => {
+  registerWithOTP: async (name: string, phoneNumber: string, password: string, otp: string, firebaseUid?: string) => {
     try {
       const response = await api.post('/api/auth/register-with-otp', { 
         name, 
         password, 
         phone_number: phoneNumber,
-        otp_code: otp 
+        otp_code: otp,
+        firebase_uid: firebaseUid
       });
       return response.data;
     } catch (error: any) {
