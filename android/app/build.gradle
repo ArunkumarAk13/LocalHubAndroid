@@ -40,6 +40,9 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    
+    // Add SafetyNet for better reCAPTCHA handling on Android
+    implementation 'com.google.android.gms:play-services-safetynet:17.0.0'
 }
 
 apply from: 'capacitor.build.gradle'

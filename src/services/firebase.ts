@@ -40,13 +40,55 @@ export const sendOTP = async (phoneNumber: string) => {
     const formattedPhoneNumber = phoneNumber.startsWith('+') 
       ? phoneNumber 
       : `+91${phoneNumber}`; // Assuming India, change as needed
-
-    // Create invisible reCAPTCHA
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible'
-      });
+    
+    // First, reset any existing reCAPTCHA instance
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (err) {
+        console.log("Error clearing existing reCAPTCHA:", err);
+      }
+      window.recaptchaVerifier = null;
     }
+
+    // Create a persistent container that stays in the DOM
+    let recaptchaContainer = document.getElementById('recaptcha-container');
+    if (!recaptchaContainer) {
+      // Create container if it doesn't exist
+      recaptchaContainer = document.createElement('div');
+      recaptchaContainer.id = 'recaptcha-container';
+      recaptchaContainer.style.position = 'fixed'; 
+      recaptchaContainer.style.bottom = '0';
+      recaptchaContainer.style.opacity = '0.01'; // nearly invisible but not hidden
+      document.body.appendChild(recaptchaContainer);
+    } else {
+      // If container exists, ensure it's in the DOM
+      if (!document.body.contains(recaptchaContainer)) {
+        document.body.appendChild(recaptchaContainer);
+      }
+      // Clear any content to avoid "already rendered" errors
+      recaptchaContainer.innerHTML = '';
+    }
+
+    // Create a new reCAPTCHA verifier
+    window.recaptchaVerifier = new RecaptchaVerifier(
+      auth, 
+      'recaptcha-container', 
+      {
+        size: 'invisible',
+        callback: () => {
+          console.log('reCAPTCHA resolved');
+        },
+        'expired-callback': () => {
+          console.log('reCAPTCHA expired');
+        }
+      }
+    );
+
+    // Force render to initialize properly
+    await window.recaptchaVerifier.render();
+    
+    console.log('Sending verification code to:', formattedPhoneNumber);
 
     // Request OTP
     const confirmationResult = await signInWithPhoneNumber(
@@ -61,6 +103,17 @@ export const sendOTP = async (phoneNumber: string) => {
     return { success: true };
   } catch (error: any) {
     console.error("Error sending OTP:", error);
+    
+    // Clean up on error but don't remove the container
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+      window.recaptchaVerifier = null;
+    }
+    
     return { 
       success: false, 
       message: error.message || "Failed to send verification code" 
