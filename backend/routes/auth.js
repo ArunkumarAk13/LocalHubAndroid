@@ -52,6 +52,98 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
+// Register with OTP verification (using Firebase)
+router.post('/register-with-otp', async (req, res, next) => {
+  try {
+    const { name, phone_number, password, otp_code, firebase_uid } = req.body;
+    
+    // Validate required fields
+    if (!name || !phone_number || !password || !firebase_uid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields' 
+      });
+    }
+    
+    // Check if user exists by phone number
+    const phoneCheck = await db.query('SELECT * FROM users WHERE phone_number = $1', [phone_number]);
+    if (phoneCheck.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this phone number'
+      });
+    }
+    
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    // Use default avatar
+    const avatar = 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=';
+    
+    // First, you might need to add the firebase_uid column to your users table
+    // ALTER TABLE users ADD COLUMN firebase_uid VARCHAR(255);
+    
+    // Insert user into database with firebase_uid
+    try {
+      const result = await db.query(
+        'INSERT INTO users (name, password, avatar, phone_number, firebase_uid, verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, avatar, phone_number, rating',
+        [name, hashedPassword, avatar, phone_number, firebase_uid, true]
+      );
+      
+      const user = result.rows[0];
+      
+      // Generate JWT token
+      const token = jwt.sign(
+        { id: user.id, name: user.name },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+      
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully with verified phone',
+        user,
+        token
+      });
+    } catch (err) {
+      console.error('Database error:', err);
+      
+      // If there's an error related to missing firebase_uid column
+      if (err.message && err.message.includes('firebase_uid')) {
+        // Fall back to inserting without firebase_uid
+        const result = await db.query(
+          'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, avatar, phone_number, rating',
+          [name, hashedPassword, avatar, phone_number, true]
+        );
+        
+        const user = result.rows[0];
+        
+        // Generate JWT token
+        const token = jwt.sign(
+          { id: user.id, name: user.name },
+          process.env.JWT_SECRET,
+          { expiresIn: '30d' }
+        );
+        
+        // Return success response with warning
+        res.status(201).json({
+          success: true,
+          message: 'User registered successfully but firebase_uid column is missing',
+          user,
+          token
+        });
+      } else {
+        // Rethrow other errors
+        throw err;
+      }
+    }
+  } catch (error) {
+    console.error('Registration with OTP error:', error);
+    next(error);
+  }
+});
+
 // Login user
 router.post('/login', async (req, res, next) => {
   try {
