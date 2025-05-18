@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Lock, User, ArrowRight, Eye, EyeOff, Phone, Loader2, ArrowLeft } from "lucide-react";
+import { Capacitor } from '@capacitor/core';
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { OTPInput } from "@/components/ui/otp-input";
+import { sendOTP, verifyOTP } from '../services/firebase'; // web version
+import { sendNativeOTP, verifyNativeOTP } from '../services/native-firebase'; // native version
 
 // Define the form schema with validation
 const formSchema = z.object({
@@ -62,6 +65,7 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [formValues, setFormValues] = useState<z.infer<typeof formSchema> | null>(null);
   const [otpResendCountdown, setOtpResendCountdown] = useState(0);
+  const [otpValue, setOtpValue] = useState<string>('');
   
   const [passwordRequirements, setPasswordRequirements] = useState({
     minLength: false,
@@ -69,6 +73,8 @@ const Register = () => {
     hasNumber: false,
     hasSymbol: false
   });
+  
+  const isAndroid = Capacitor.getPlatform() === 'android';
   
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
@@ -159,20 +165,46 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      // Request OTP using Firebase
+      console.log("Platform:", Capacitor.getPlatform());
+      console.log("isAndroid:", isAndroid);
+      
+      // For Android, try direct Firebase API first
+      if (isAndroid) {
+        console.log("Using native Firebase authentication");
+        try {
+          const otpResponse = await sendNativeOTP(values.phoneNumber);
+          console.log("Native OTP response:", otpResponse);
+          
+          if (otpResponse.success) {
+            // Native flow initiated successfully
+            console.log("Native OTP initiated successfully");
+            setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
+            startOtpCountdown();
+            setIsLoading(false);
+            return;
+          } else {
+            console.error("Native OTP failed:", otpResponse.message);
+            setPhoneError(otpResponse.message || "Failed to send verification code");
+          }
+        } catch (nativeError) {
+          console.error("Native auth failed:", nativeError);
+          setPhoneError("Failed to send verification code. Try again later.");
+        }
+      }
+      
+      // Fallback to web implementation if native fails
+      console.log("Using web Firebase authentication");
       const otpResponse = await requestOTP(values.phoneNumber);
       
       if (otpResponse.success) {
-        // Move to OTP verification step
         setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
         startOtpCountdown();
       } else {
-        // Handle OTP request failure
         setOtpError(otpResponse.message || "Failed to send OTP. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error requesting OTP:', error);
-      setOtpError("Something went wrong. Please try again.");
+      setOtpError(error.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -209,27 +241,42 @@ const Register = () => {
     setOtpError(null);
     
     try {
-      // First verify the OTP with Firebase
-      const verifyResponse = await verifyOTP(formValues.phoneNumber, otp);
+      console.log("Verifying OTP:", otp);
+      let verifyResponse;
+      
+      if (isAndroid) {
+        // Use native verification for Android
+        console.log("Using native verification method");
+        verifyResponse = await verifyNativeOTP(otp);
+        console.log("Native verify response:", verifyResponse);
+      } else {
+        // Use web verification
+        console.log("Using web verification method");
+        verifyResponse = await verifyOTP(formValues.phoneNumber, otp);
+      }
       
       if (verifyResponse.success) {
+        console.log("OTP verification successful, completing registration");
         // Complete registration with verified OTP
         const registerResponse = await registerWithOTP(
-          formValues.name, 
-          formValues.phoneNumber, 
-          formValues.password, 
-          otp
+          formValues.name,
+          formValues.phoneNumber,
+          formValues.password,
+          otp,
+          verifyResponse.user?.uid || `temp-${Date.now()}` // Fallback for development mode
         );
         
         if (!registerResponse) {
           setOtpError("Failed to complete registration. Please try again.");
         }
       } else {
+        // Show the error message from the verification response
+        console.error("OTP verification failed:", verifyResponse.message);
         setOtpError(verifyResponse.message || "Invalid OTP. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      setOtpError("Something went wrong. Please try again.");
+      setOtpError(error.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -479,7 +526,9 @@ const Register = () => {
                   <Label className="text-base" htmlFor="otp">Enter verification code</Label>
                   <OTPInput 
                     length={6} 
-                    onComplete={handleVerifyOTP} 
+                    onComplete={(code) => {
+                      setOtpValue(code);
+                    }} 
                     isError={!!otpError}
                     disabled={isLoading}
                   />
@@ -514,8 +563,8 @@ const Register = () => {
                     <Button
                       type="button"
                       className="flex-1"
-                      onClick={() => {}}
-                      disabled={true}
+                      onClick={() => handleVerifyOTP(otpValue)}
+                      disabled={isLoading || otpValue.length !== 6}
                     >
                       {isLoading ? (
                         <>

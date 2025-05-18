@@ -12,6 +12,17 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorHttp: {
       enabled: true
+    },
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ["phone"],
+      languageCode: "en",
+      nativeAuth: {
+        providers: ["phone"],
+        permissions: {
+          phone: ["android.permission.RECEIVE_SMS"]
+        }
+      }
     }
   }
 };

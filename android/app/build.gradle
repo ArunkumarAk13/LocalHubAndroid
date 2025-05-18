@@ -43,6 +43,8 @@ dependencies {
     
     // Add SafetyNet for better reCAPTCHA handling on Android
     implementation 'com.google.android.gms:play-services-safetynet:17.0.0'
+    implementation 'com.google.firebase:firebase-auth:22.2.0'
+    implementation 'com.google.android.gms:play-services-safetynet:18.0.1'
 }
 
 apply from: 'capacitor.build.gradle'

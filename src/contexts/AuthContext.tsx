@@ -23,7 +23,7 @@ interface AuthContextType {
   register: (name: string, phoneNumber: string, password: string) => Promise<any>;
   requestOTP: (phoneNumber: string) => Promise<any>;
   verifyOTP: (phoneNumber: string, otp: string) => Promise<any>;
-  registerWithOTP: (name: string, phoneNumber: string, password: string, otp: string) => Promise<any>;
+  registerWithOTP: (name: string, phoneNumber: string, password: string, otp: string, firebaseUid?: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: { name: string; avatar: string; phoneNumber: string }) => Promise<any>;
   isAuthenticated: boolean;
@@ -176,22 +176,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Register with OTP function - Using Firebase
-  const registerWithOTP = async (name: string, phoneNumber: string, password: string, otp: string) => {
+  const registerWithOTP = async (name: string, phoneNumber: string, password: string, otp: string, firebaseUid?: string) => {
     try {
       // Clear previous user data first
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
       
-      // Get the Firebase UID from verification
-      const firebaseUid = localStorage.getItem('tempFirebaseUid');
+      // Get the Firebase UID from verification or use provided one
+      let tempFirebaseUid = firebaseUid || localStorage.getItem('tempFirebaseUid');
       
-      if (!firebaseUid) {
-        toast.error('Phone verification required before registration');
-        return false;
+      // In development mode, we might not have a Firebase UID
+      if (!tempFirebaseUid) {
+        if (process.env.NODE_ENV !== 'production') {
+          // Use a fake UID for development
+          tempFirebaseUid = `dev-${Date.now()}`;
+          console.log('[DEV] Using development Firebase UID:', tempFirebaseUid);
+        } else {
+          toast.error('Phone verification required before registration');
+          return false;
+        }
       }
       
       // Call your backend API with the Firebase UID for additional security
-      const response = await authAPI.registerWithOTP(name, phoneNumber, password, otp, firebaseUid);
+      const response = await authAPI.registerWithOTP(name, phoneNumber, password, otp, tempFirebaseUid);
       
       if (response.success) {
         // Clear the temporary Firebase UID
@@ -200,7 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Set user data
         setUser({
           ...response.user,
-          firebaseUid
+          firebaseUid: tempFirebaseUid
         });
         
         localStorage.setItem('token', response.token);
