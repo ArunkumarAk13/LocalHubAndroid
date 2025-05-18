@@ -528,7 +528,12 @@ const Register = () => {
                     length={6} 
                     onComplete={(code) => {
                       setOtpValue(code);
-                    }} 
+                      console.log("OTP entered completely:", code);
+                    }}
+                    onChange={(code) => {
+                      setOtpValue(code);
+                      console.log("OTP partial update:", code);
+                    }}
                     isError={!!otpError}
                     disabled={isLoading}
                   />

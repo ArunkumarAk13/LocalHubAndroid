@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 interface OTPInputProps {
   length?: number;
   onComplete: (otp: string) => void;
+  onChange?: (partialOtp: string) => void;
   isError?: boolean;
   className?: string;
   disabled?: boolean;
@@ -12,6 +13,7 @@ interface OTPInputProps {
 export function OTPInput({
   length = 6,
   onComplete,
+  onChange,
   isError = false,
   className,
   disabled = false
@@ -40,8 +42,13 @@ export function OTPInput({
     newOtp[index] = digit;
     setOtp(newOtp);
     
-    // Check if OTP is complete
+    // Call onChange handler with partial OTP
     const otpValue = newOtp.join('');
+    if (onChange) {
+      onChange(otpValue);
+    }
+    
+    // Check if OTP is complete
     if (newOtp.every(val => val !== '') && otpValue.length === length) {
       onComplete(otpValue);
     }
