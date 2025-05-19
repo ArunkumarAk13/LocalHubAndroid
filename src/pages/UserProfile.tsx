@@ -140,10 +140,17 @@ const UserProfile = () => {
             </div>
             <CardTitle className="text-2xl font-bold">{userData.name}</CardTitle>
             {userData.location && (
-              <p className="text-muted-foreground flex items-center gap-1">
-                <MapPin size={14} />
-                {userData.location}
-              </p>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <a 
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(userData.location)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {userData.location}
+                </a>
+              </div>
             )}
             <div className="mt-2">
               {renderRatingStars(userData.rating)}
