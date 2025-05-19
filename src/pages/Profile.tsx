@@ -66,7 +66,7 @@ const Profile = () => {
       if (user) {
         try {
           const [profileResponse, categoriesResponse] = await Promise.all([
-            usersAPI.getUserProfile(user.id),
+            usersAPI.getUserProfile(user.id.toString()),
             usersAPI.getSubscribedCategories()
           ]);
           
@@ -255,6 +255,12 @@ const Profile = () => {
               </Button>
             </div>
             <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
+            {user?.location && (
+              <p className="text-muted-foreground flex items-center gap-1">
+                <MapPin size={14} />
+                {user.location}
+              </p>
+            )}
             <div className="mt-2">
               {renderRatingStars(user?.rating || 0)}
             </div>
