@@ -146,7 +146,7 @@ const UserProfile = () => {
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(userData.location)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:underline"
+                  className="text-blue-600 underline hover:text-blue-800"
                 >
                   {userData.location}
                 </a>
