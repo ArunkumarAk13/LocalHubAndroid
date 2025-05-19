@@ -255,6 +255,12 @@ const Profile = () => {
               </Button>
             </div>
             <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
+            {user?.location && (
+              <p className="text-muted-foreground flex items-center gap-1">
+                <MapPin size={14} />
+                {user.location}
+              </p>
+            )}
             <div className="mt-2">
               {renderRatingStars(user?.rating || 0)}
             </div>
