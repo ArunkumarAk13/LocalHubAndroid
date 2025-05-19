@@ -65,12 +65,26 @@ const Profile = () => {
     const fetchData = async () => {
       if (user) {
         try {
+          console.log('Fetching profile data for user:', user.id);
           const [profileResponse, categoriesResponse] = await Promise.all([
             usersAPI.getUserProfile(user.id.toString()),
             usersAPI.getSubscribedCategories()
           ]);
           
+          console.log('Profile response:', profileResponse);
+          
           if (profileResponse.success) {
+            // Update user data with the latest information
+            if (user) {
+              console.log('Updating user data with:', profileResponse.user);
+              user.name = profileResponse.user.name;
+              user.avatar = profileResponse.user.avatar;
+              user.phone_number = profileResponse.user.phone_number;
+              user.location = profileResponse.user.location;
+              user.rating = profileResponse.user.rating;
+              user.created_at = profileResponse.user.created_at;
+              console.log('Updated user data:', user);
+            }
             setMyPosts(Array(profileResponse.user.postCount || 0).fill(null));
           }
           
