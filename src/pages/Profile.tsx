@@ -413,9 +413,9 @@ const Profile = () => {
                   <Input
                     id="location"
                     value={editForm.location}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="Your location"
-                    className="pl-10"
+                    disabled
+                    placeholder="Click 'Get Current Location' to set your location"
+                    className="pl-10 bg-muted cursor-not-allowed"
                   />
                 </div>
                 <Button
