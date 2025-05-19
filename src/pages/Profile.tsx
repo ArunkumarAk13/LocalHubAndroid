@@ -66,12 +66,19 @@ const Profile = () => {
       if (user) {
         try {
           const [profileResponse, categoriesResponse] = await Promise.all([
-            usersAPI.getUserProfile(user.id),
+            usersAPI.getUserProfile(user.id.toString()),
             usersAPI.getSubscribedCategories()
           ]);
           
           if (profileResponse.success) {
             setMyPosts(Array(profileResponse.user.postCount || 0).fill(null));
+            // Update the user context with the latest data including location
+            if (user) {
+              user.name = profileResponse.user.name;
+              user.avatar = profileResponse.user.avatar;
+              user.phone_number = profileResponse.user.phone_number;
+              user.location = profileResponse.user.location;
+            }
           }
           
           if (categoriesResponse.success && Array.isArray(categoriesResponse.categories)) {
