@@ -231,7 +231,11 @@ const MyPosts: React.FC = () => {
         return;
       }
 
-      console.log("User submitted rating:", rating);
+      console.log("Submitting rating:", {
+        postId: selectedPostId,
+        sellerId: selectedSeller.id,
+        rating: rating
+      });
       
       setIsRatingDialogOpen(false);
       
@@ -244,6 +248,8 @@ const MyPosts: React.FC = () => {
         selectedSeller.id,
         rating // Pass the selected rating
       );
+      
+      console.log("Server response:", response);
       
       if (response.success) {
         // Update local post state

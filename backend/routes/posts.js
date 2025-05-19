@@ -348,6 +348,12 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
   
   try {
     const { sellerId, rating } = req.body;
+    console.log('Received purchase request:', {
+      postId: req.params.id,
+      sellerId,
+      rating,
+      userId: req.user.id
+    });
     
     // Check if post exists and belongs to user
     const postResult = await db.query(
@@ -364,6 +370,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     
     // Toggle the purchased status
     const newStatus = !postResult.rows[0].purchased;
+    console.log('New purchase status:', newStatus);
     
     // Update post
     await db.query(
@@ -373,14 +380,17 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     
     // If rating is provided and sellerId is provided, add the rating
     if (rating && sellerId && newStatus) {
+      console.log('Adding rating:', { postId: req.params.id, sellerId, rating });
+      
       // Add rating
-      await db.query(
-        'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3)',
+      const ratingResult = await db.query(
+        'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3) RETURNING id',
         [req.params.id, sellerId, rating]
       );
+      console.log('Rating added:', ratingResult.rows[0]);
       
       // Update user's average rating
-      await db.query(`
+      const updateResult = await db.query(`
         UPDATE users
         SET rating = (
           SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
@@ -389,7 +399,9 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
           WHERE p.user_id = $1
         )
         WHERE id = $1
+        RETURNING rating
       `, [sellerId]);
+      console.log('Updated seller rating:', updateResult.rows[0]);
     }
     
     await db.query('COMMIT');
