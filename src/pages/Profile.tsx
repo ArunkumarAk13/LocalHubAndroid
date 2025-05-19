@@ -223,7 +223,7 @@ const Profile = () => {
                 <Pencil size={16} />
               </Button>
             </div>
-            <p className="text-muted-foreground">{user?.email || "user@example.com"}</p>
+            <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
             <div className="mt-2">
               {renderRatingStars(user?.rating || 0)}
             </div>
