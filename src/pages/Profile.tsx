@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Star, FileImage, Edit, Bell, Pencil, Upload, Settings as SettingsIcon } from "lucide-react";
+import { Star, FileImage, Edit, Bell, Pencil, Upload, Settings as SettingsIcon, MapPin } from "lucide-react";
 import { usersAPI } from "@/api";
 import {
   Dialog,
@@ -18,8 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { TextField } from "@/components/ui/text-field";
-import { DialogActions } from "@/components/ui/dialog";
 import Settings from "@/components/Settings";
 import { API_BASE_URL } from '@/api/config';
 
@@ -32,7 +30,8 @@ const Profile = () => {
   const [editForm, setEditForm] = useState({
     name: user?.name || "",
     avatar: user?.avatar || "",
-    phoneNumber: user?.phone_number || ""
+    phoneNumber: user?.phone_number || "",
+    location: user?.location || ""
   });
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +108,7 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('name', editForm.name);
       formData.append('phoneNumber', editForm.phoneNumber);
+      formData.append('location', editForm.location);
 
       // If a new file was selected, append it to formData
       const fileInput = fileInputRef.current;
@@ -145,13 +145,15 @@ const Profile = () => {
         setEditForm({
           name: result.user.name,
           avatar: result.user.avatar,
-          phoneNumber: result.user.phone_number
+          phoneNumber: result.user.phone_number,
+          location: result.user.location
         });
         // Update the user context
         if (user) {
           user.name = result.user.name;
           user.avatar = result.user.avatar;
           user.phone_number = result.user.phone_number;
+          user.location = result.user.location;
         }
       } else {
         throw new Error(result.message || "Failed to update profile");
@@ -161,6 +163,34 @@ const Profile = () => {
       toast.error(error.message || "Failed to update profile. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            // Use reverse geocoding to get address
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude.toString()}&lon=${longitude.toString()}`
+            );
+            const data = await response.json();
+            const address = data.display_name;
+            setEditForm(prev => ({ ...prev, location: address }));
+          } catch (error) {
+            console.error('Error getting address:', error);
+            toast.error('Failed to get address from coordinates');
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast.error('Failed to get current location');
+        }
+      );
+    } else {
+      toast.error('Geolocation is not supported by your browser');
     }
   };
 
@@ -181,7 +211,8 @@ const Profile = () => {
       setEditForm({
         name: user?.name || "",
         avatar: user?.avatar || "",
-        phoneNumber: user?.phone_number || ""
+        phoneNumber: user?.phone_number || "",
+        location: user?.location || ""
       });
     }
   }, [isEditDialogOpen, user]);
@@ -364,6 +395,32 @@ const Profile = () => {
                 onChange={(e) => setEditForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
                 placeholder="+1234567890"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                    <MapPin size={18} />
+                  </div>
+                  <Input
+                    id="location"
+                    value={editForm.location}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="Your location"
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={getCurrentLocation}
+                  className="whitespace-nowrap"
+                >
+                  Get Current Location
+                </Button>
+              </div>
             </div>
           </div>
           

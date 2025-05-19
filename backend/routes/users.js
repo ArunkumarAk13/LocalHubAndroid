@@ -433,7 +433,7 @@ router.put('/notifications/read-all', auth, async (req, res, next) => {
 // Update user profile
 router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, next) => {
   try {
-    const { name, phoneNumber } = req.body;
+    const { name, phoneNumber, location } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -457,8 +457,8 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
 
       // Update user profile
       const result = await db.query(
-        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar) WHERE id = $4 RETURNING id, name, email, avatar, phone_number, rating',
-        [name, phoneNumber, avatarUrl, req.user.id]
+        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar), location = $4 WHERE id = $5 RETURNING id, name, email, avatar, phone_number, rating, location',
+        [name, phoneNumber, avatarUrl, location, req.user.id]
       );
 
       await db.query('COMMIT');
