@@ -1,70 +1,60 @@
 const jwt = require('jsonwebtoken');
+const db = require('../db');
 
-module.exports = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   try {
-    // Get token from header
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      console.log('No token provided in request');
-      return res.status(401).json({
-        success: false,
-        message: 'No authentication token, authorization denied'
-      });
-    }
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-    // Log the token for debugging (remove in production)
-    console.log('Received token:', token);
-
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded token payload:', decoded);
-
-    // Ensure user ID exists
-    if (!decoded.id) {
-      console.log('No user ID in token payload:', decoded);
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID in token'
-      });
-    }
-
-    // Convert ID to number and validate
-    const userId = parseInt(decoded.id, 10);
-    
-    if (isNaN(userId)) {
-      console.log('Invalid user ID format:', decoded.id);
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID format'
-      });
-    }
-
-    // Set user in request
-    req.user = {
-      ...decoded,
-      id: userId
-    };
-    
-    console.log('Authenticated user:', req.user);
-    next();
-  } catch (err) {
-    console.error('Auth middleware error:', err);
-    if (err.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token format'
-      });
-    }
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token has expired'
-      });
-    }
-    res.status(401).json({
-      success: false,
-      message: 'Token is not valid'
+    console.log('Auth middleware received request:', {
+      path: req.path,
+      method: req.method,
+      headers: req.headers,
+      body: req.body,
+      token: token ? 'present' : 'missing'
     });
+
+    if (!token) {
+      console.log('No token provided');
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Token decoded:', {
+        userId: decoded.id,
+        email: decoded.email,
+        exp: decoded.exp,
+        iat: decoded.iat
+      });
+
+      // Verify user exists
+      const user = await db.oneOrNone('SELECT * FROM users WHERE id = $1', [decoded.id]);
+      
+      if (!user) {
+        console.log('User not found:', decoded.id);
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      console.log('User authenticated:', {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      });
+
+      req.user = user;
+      next();
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token expired' });
+      }
+      return res.status(403).json({ message: 'Invalid token' });
+    }
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+module.exports = authenticateToken;

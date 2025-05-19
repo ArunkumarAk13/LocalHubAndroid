@@ -22,9 +22,15 @@ api.interceptors.request.use(
       // Ensure the Authorization header is properly set
       config.headers.Authorization = `Bearer ${token}`;
       
-      // Only log in development
-      if (process.env.NODE_ENV !== 'production') {
-      console.log('Making request to:', config.baseURL + config.url);
+      // Log request details in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('API Request:', {
+          url: config.url,
+          method: config.method,
+          headers: config.headers,
+          data: config.data,
+          token: token ? 'present' : 'missing'
+        });
       }
     } else {
       console.warn('No token found in localStorage for request to:', config.baseURL + config.url);
@@ -40,22 +46,31 @@ api.interceptors.request.use(
 // Add a response interceptor to handle token expiration
 api.interceptors.response.use(
   (response) => {
-    console.log('Response received:', response.config.baseURL + response.config.url, response.status);
+    // Log response details in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('API Response:', {
+        url: response.config.url,
+        status: response.status,
+        data: response.data,
+        headers: response.headers
+      });
+    }
     return response;
   },
   (error) => {
+    // Log error details
     console.error('API Error:', {
-      url: error.config?.baseURL + error.config?.url,
+      url: error.config?.url,
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
-      token: error.config?.headers?.Authorization ? 'Present' : 'Missing'
+      token: localStorage.getItem('token') ? 'present' : 'missing'
     });
     
-    // Don't automatically redirect on auth errors for login/register endpoints
+    // Handle 401 errors
     if (error.response?.status === 401 && 
-        !error.config?.url?.includes('/auth/login') && 
-        !error.config?.url?.includes('/auth/register')) {
+        !error.config.url.includes('/auth/login') && 
+        !error.config.url.includes('/auth/register')) {
       console.log('Authentication error, clearing token');
       localStorage.removeItem('token');
       localStorage.removeItem('subscribedCategories');
@@ -205,6 +220,12 @@ export const postsAPI = {
     
     if (sellerId) data.sellerId = sellerId;
     if (rating) data.rating = rating;
+    
+    console.log('Sending purchase request:', {
+      postId,
+      data,
+      url: `/api/posts/${postId}/purchased`
+    });
     
     const response = await api.patch(`/api/posts/${postId}/purchased`, data);
     return response.data;
