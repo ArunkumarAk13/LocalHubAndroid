@@ -355,21 +355,40 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
       userId: req.user.id
     });
     
-    // Check if post exists and belongs to user
-    const postResult = await db.query(
-      'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
-      [req.params.id, sellerId]
+    // First check if post exists
+    const postCheck = await db.query(
+      'SELECT * FROM posts WHERE id = $1',
+      [req.params.id]
     );
     
-    if (postResult.rows.length === 0) {
+    console.log('Post check result:', {
+      postFound: postCheck.rows.length > 0,
+      postId: req.params.id,
+      postUserId: postCheck.rows[0]?.user_id,
+      sellerId: sellerId
+    });
+    
+    if (postCheck.rows.length === 0) {
       return res.status(404).json({ 
         success: false,
-        message: 'Post not found or you do not have permission to modify it' 
+        message: 'Post not found' 
+      });
+    }
+    
+    // Then check if it belongs to the seller
+    if (postCheck.rows[0].user_id !== sellerId) {
+      console.log('Post ownership mismatch:', {
+        postUserId: postCheck.rows[0].user_id,
+        sellerId: sellerId
+      });
+      return res.status(403).json({ 
+        success: false,
+        message: 'Post does not belong to the specified seller' 
       });
     }
     
     // Toggle the purchased status
-    const newStatus = !postResult.rows[0].purchased;
+    const newStatus = !postCheck.rows[0].purchased;
     console.log('New purchase status:', newStatus);
     
     try {
