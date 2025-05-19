@@ -256,10 +256,17 @@ const Profile = () => {
             </div>
             <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
             {user?.location && (
-              <p className="text-muted-foreground flex items-center gap-1">
-                <MapPin size={14} />
-                {user.location}
-              </p>
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <a 
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(user.location)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                >
+                  {user.location}
+                </a>
+              </div>
             )}
             <div className="mt-2">
               {renderRatingStars(user?.rating || 0)}
