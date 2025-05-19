@@ -376,19 +376,6 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
       });
     }
     
-    // Then check if it belongs to the seller
-    if (postCheck.rows[0].user_id !== Number(sellerId)) {
-      console.log('Post ownership mismatch:', {
-        postUserId: postCheck.rows[0].user_id,
-        sellerId: sellerId,
-        convertedSellerId: Number(sellerId)
-      });
-      return res.status(403).json({ 
-        success: false,
-        message: 'Post does not belong to the specified seller' 
-      });
-    }
-    
     // Toggle the purchased status
     const newStatus = !postCheck.rows[0].purchased;
     console.log('New purchase status:', newStatus);
