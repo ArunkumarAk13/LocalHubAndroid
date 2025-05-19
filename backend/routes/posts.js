@@ -345,95 +345,39 @@ router.delete('/:id', auth, async (req, res, next) => {
 // Mark post as purchased
 router.patch('/:id/purchased', auth, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { sellerId, rating } = req.body;
-    const userId = req.user.id;
-
-    console.log('Received purchase request:', {
-      postId: id,
-      sellerId,
-      rating,
-      userId,
-      body: req.body,
-      headers: req.headers,
-      method: req.method,
-      path: req.path
-    });
-
-    // Check if post exists
-    const post = await db.oneOrNone('SELECT * FROM posts WHERE id = $1', [id]);
-    console.log('Post lookup result:', { found: !!post, post });
-
-    if (!post) {
-      console.log('Post not found:', id);
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    // Toggle purchased status
-    const newStatus = !post.purchased;
-    console.log('New purchase status:', { 
-      postId: id, 
-      oldStatus: post.purchased, 
-      newStatus,
-      userId,
-      sellerId,
-      rating
-    });
-
-    // Update post status
-    await db.none('UPDATE posts SET purchased = $1 WHERE id = $2', [newStatus, id]);
-
-    // If rating and sellerId are provided, add the rating
-    if (rating && sellerId) {
-      console.log('Processing rating:', { postId: id, sellerId, rating, userId });
-      
-      // Check if user has already rated this post
-      const existingRating = await db.oneOrNone(
-        'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
-        [id, userId]
-      );
-
-      if (existingRating) {
-        console.log('User has already rated this post:', { postId: id, userId });
-        return res.status(400).json({ message: 'You have already rated this post' });
-      }
-
-      // Add the rating
-      await db.none(
-        'INSERT INTO ratings (post_id, user_id, seller_id, rating) VALUES ($1, $2, $3, $4)',
-        [id, userId, sellerId, rating]
-      );
-
-      // Update seller's average rating
-      const avgRating = await db.one(
-        'SELECT AVG(rating) as avg_rating FROM ratings WHERE seller_id = $1',
-        [sellerId]
-      );
-
-      await db.none(
-        'UPDATE users SET rating = $1 WHERE id = $2',
-        [avgRating.avg_rating || 0, sellerId]
-      );
-
-      console.log('Rating processed successfully:', { 
-        postId: id, 
-        sellerId, 
-        rating,
-        newAvgRating: avgRating.avg_rating
+    // Check if post exists and belongs to user
+    const postResult = await db.query(
+      'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    );
+    
+    if (postResult.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Post not found or you do not have permission to modify it' 
       });
     }
-
+    
+    // Toggle the purchased status
+    const newStatus = !postResult.rows[0].purchased;
+    
+    // Update post
+    await db.query(
+      'UPDATE posts SET purchased = $1 WHERE id = $2',
+      [newStatus, req.params.id]
+    );
+    
     res.json({ 
-      success: true, 
-      message: 'Post status updated successfully',
+      success: true,
+      message: newStatus ? 'Post marked as purchased' : 'Post marked as available',
       purchased: newStatus
     });
+    
   } catch (error) {
-    console.error('Error in markAsPurchased:', error);
+    console.error('Error marking post as purchased:', error);
     res.status(500).json({ 
-      message: 'Error updating post status',
-      error: error.message,
-      stack: error.stack
+      success: false,
+      message: 'Failed to update post status' 
     });
   }
 });
