@@ -358,7 +358,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     // Check if post exists and belongs to user
     const postResult = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.id]
+      [req.params.id, sellerId]
     );
     
     if (postResult.rows.length === 0) {
@@ -372,49 +372,60 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     const newStatus = !postResult.rows[0].purchased;
     console.log('New purchase status:', newStatus);
     
-    // Update post
-    await db.query(
-      'UPDATE posts SET purchased = $1 WHERE id = $2',
-      [newStatus, req.params.id]
-    );
+    try {
+      // Update post
+      await db.query(
+        'UPDATE posts SET purchased = $1 WHERE id = $2',
+        [newStatus, req.params.id]
+      );
+      console.log('Post purchase status updated successfully');
+    } catch (error) {
+      console.error('Error updating post purchase status:', error);
+      throw error;
+    }
     
     // If rating is provided and sellerId is provided, add the rating
     if (rating && sellerId && newStatus) {
       console.log('Adding rating:', { postId: req.params.id, sellerId, rating });
       
-      // Check if user has already rated this post
-      const existingRating = await db.query(
-        'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
-        [req.params.id, req.user.id]
-      );
-      
-      if (existingRating.rows.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'You have already rated this post'
-        });
+      try {
+        // Check if user has already rated this post
+        const existingRating = await db.query(
+          'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
+          [req.params.id, req.user.id]
+        );
+        
+        if (existingRating.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'You have already rated this post'
+          });
+        }
+        
+        // Add rating - use the current user's ID as the rater
+        const ratingResult = await db.query(
+          'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3) RETURNING id',
+          [req.params.id, req.user.id, rating]
+        );
+        console.log('Rating added:', ratingResult.rows[0]);
+        
+        // Update user's average rating
+        const updateResult = await db.query(`
+          UPDATE users
+          SET rating = (
+            SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
+            FROM posts p
+            JOIN ratings r ON p.id = r.post_id
+            WHERE p.user_id = $1
+          )
+          WHERE id = $1
+          RETURNING rating
+        `, [sellerId]);
+        console.log('Updated seller rating:', updateResult.rows[0]);
+      } catch (error) {
+        console.error('Error handling rating:', error);
+        throw error;
       }
-      
-      // Add rating - use the current user's ID as the rater
-      const ratingResult = await db.query(
-        'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3) RETURNING id',
-        [req.params.id, req.user.id, rating]
-      );
-      console.log('Rating added:', ratingResult.rows[0]);
-      
-      // Update user's average rating
-      const updateResult = await db.query(`
-        UPDATE users
-        SET rating = (
-          SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
-          FROM posts p
-          JOIN ratings r ON p.id = r.post_id
-          WHERE p.user_id = $1
-        )
-        WHERE id = $1
-        RETURNING rating
-      `, [sellerId]);
-      console.log('Updated seller rating:', updateResult.rows[0]);
     }
     
     await db.query('COMMIT');
@@ -430,7 +441,8 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     console.error('Error marking post as purchased:', error);
     res.status(500).json({ 
       success: false,
-      message: 'Failed to update post status' 
+      message: 'Failed to update post status',
+      error: error.message
     });
   }
 });
