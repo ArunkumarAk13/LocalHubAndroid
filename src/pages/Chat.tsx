@@ -282,16 +282,21 @@ const Chat = () => {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <Avatar>
-              <AvatarImage src={currentChatDetails?.participant_avatar} />
-              <AvatarFallback>
-                {currentChatDetails?.participant_name?.slice(0, 2).toUpperCase() || "..."}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h2 className="text-lg font-semibold">
-                {currentChatDetails?.participant_name}
-              </h2>
+            <div 
+              className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate(`/profile/${currentChatDetails?.participant_id}`)}
+            >
+              <Avatar>
+                <AvatarImage src={currentChatDetails?.participant_avatar} />
+                <AvatarFallback>
+                  {currentChatDetails?.participant_name?.slice(0, 2).toUpperCase() || "..."}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {currentChatDetails?.participant_name}
+                </h2>
+              </div>
             </div>
           </div>
         </div>
