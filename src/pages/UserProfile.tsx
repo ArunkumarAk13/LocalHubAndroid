@@ -139,14 +139,12 @@ const UserProfile = () => {
               />
             </div>
             <CardTitle className="text-2xl font-bold">{userData.name}</CardTitle>
-            <p className="text-muted-foreground">{userData.phone_number || "No phone number"}</p>
             {userData.location && (
               <p className="text-muted-foreground flex items-center gap-1">
                 <MapPin size={14} />
                 {userData.location}
               </p>
             )}
-            
             <div className="mt-2">
               {renderRatingStars(userData.rating)}
             </div>
