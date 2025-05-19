@@ -27,6 +27,7 @@ interface AuthContextType {
   registerWithOTP: (name: string, phoneNumber: string, password: string, otp: string, firebaseUid?: string) => Promise<any>;
   logout: () => void;
   updateProfile: (data: { name: string; avatar: string; phoneNumber: string }) => Promise<any>;
+  updateUserData: (newData: Partial<User>) => void;
   isAuthenticated: boolean;
 }
 
@@ -39,35 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Check localStorage for existing token and fetch user data
-  useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      
-      if (token) {
-        try {
-          const response = await authAPI.getCurrentUser();
-          if (response.success) {
-            setUser(response.user);
-          } else {
-            // If token is invalid, clear it
-            localStorage.removeItem('token');
-            localStorage.removeItem('subscribedCategories');
-            localStorage.removeItem('userNotifications');
-            setUser(null);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('subscribedCategories');
-          localStorage.removeItem('userNotifications');
-          setUser(null);
-        }
+  // Get current user
+  const getCurrentUser = async () => {
+    try {
+      const response = await authAPI.getCurrentUser();
+      if (response.success) {
+        setUser(response.user);
       }
-      setIsLoading(false);
-    };
+    } catch (error) {
+      console.error('Error getting current user:', error);
+    }
+  };
 
-    initializeAuth();
+  // Check authentication status on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      getCurrentUser();
+    }
+    setIsLoading(false);
   }, []);
 
   // Login function
@@ -269,6 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Update user data
+  const updateUserData = (newData: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...newData } : null);
+  };
+
   // Don't render children until initial auth check is complete
   if (isLoading) {
     return null;
@@ -285,6 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerWithOTP,
         logout,
         updateProfile,
+        updateUserData,
         isAuthenticated: !!user,
       }}
     >

@@ -22,7 +22,7 @@ import Settings from "@/components/Settings";
 import { API_BASE_URL } from '@/api/config';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserData } = useAuth();
   const navigate = useNavigate();
   const [myPosts, setMyPosts] = useState([]);
   const [subscribedCategories, setSubscribedCategories] = useState<string[]>([]);
@@ -73,12 +73,12 @@ const Profile = () => {
           if (profileResponse.success) {
             setMyPosts(Array(profileResponse.user.postCount || 0).fill(null));
             // Update the user context with the latest data including location
-            if (user) {
-              user.name = profileResponse.user.name;
-              user.avatar = profileResponse.user.avatar;
-              user.phone_number = profileResponse.user.phone_number;
-              user.location = profileResponse.user.location;
-            }
+            updateUserData({
+              name: profileResponse.user.name,
+              avatar: profileResponse.user.avatar,
+              phone_number: profileResponse.user.phone_number,
+              location: profileResponse.user.location
+            });
           }
           
           if (categoriesResponse.success && Array.isArray(categoriesResponse.categories)) {
@@ -92,7 +92,7 @@ const Profile = () => {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, updateUserData]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
