@@ -431,10 +431,10 @@ const MyPosts: React.FC = () => {
                         className="h-7 text-xs flex-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/post/${post.id}`);
+                          openPurchaseDialog(post.id);
                         }}
                       >
-                        View Post
+                        Mark as Purchased
                       </Button>
                     )}
                   </div>

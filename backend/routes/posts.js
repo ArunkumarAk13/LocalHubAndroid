@@ -376,14 +376,6 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
       });
     }
     
-    // Check if user is trying to mark their own post as purchased
-    if (postCheck.rows[0].user_id === req.user.id) {
-      return res.status(403).json({ 
-        success: false,
-        message: 'You cannot mark your own post as purchased' 
-      });
-    }
-    
     // Toggle the purchased status
     const newStatus = !postCheck.rows[0].purchased;
     console.log('New purchase status:', newStatus);
