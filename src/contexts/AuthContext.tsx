@@ -46,19 +46,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authAPI.getCurrentUser();
       if (response.success) {
         setUser(response.user);
+      } else {
+        // If token is invalid, clear it
+        localStorage.removeItem('token');
+        localStorage.removeItem('subscribedCategories');
+        localStorage.removeItem('userNotifications');
+        setUser(null);
       }
     } catch (error) {
       console.error('Error getting current user:', error);
+      // If there's an error, clear the token and user data
+      localStorage.removeItem('token');
+      localStorage.removeItem('subscribedCategories');
+      localStorage.removeItem('userNotifications');
+      setUser(null);
     }
   };
 
-  // Check authentication status on mount
+  // Check authentication status on mount and when token changes
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       getCurrentUser();
+    } else {
+      setUser(null);
     }
     setIsLoading(false);
+  }, []);
+
+  // Add token to API requests
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Add token to all API requests
+      authAPI.setAuthToken(token);
+    }
   }, []);
 
   // Login function
