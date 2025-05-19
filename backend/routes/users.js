@@ -197,7 +197,7 @@ router.get('/:id', async (req, res, next) => {
     }
     
     const userResult = await db.query(`
-      SELECT u.id, u.name, u.email, u.avatar, u.rating, u.created_at, u.phone_number, u.location,
+      SELECT u.id, u.name, u.email, u.avatar, u.rating, u.created_at, u.phone_number,
              COALESCE(us.whatsapp_enabled, false) as whatsapp_enabled
       FROM users u
       LEFT JOIN user_settings us ON u.id = us.user_id

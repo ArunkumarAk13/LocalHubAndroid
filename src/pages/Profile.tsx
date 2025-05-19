@@ -66,19 +66,12 @@ const Profile = () => {
       if (user) {
         try {
           const [profileResponse, categoriesResponse] = await Promise.all([
-            usersAPI.getUserProfile(user.id.toString()),
+            usersAPI.getUserProfile(user.id),
             usersAPI.getSubscribedCategories()
           ]);
           
           if (profileResponse.success) {
             setMyPosts(Array(profileResponse.user.postCount || 0).fill(null));
-            // Update the user context with the latest data including location
-            if (user) {
-              user.name = profileResponse.user.name;
-              user.avatar = profileResponse.user.avatar;
-              user.phone_number = profileResponse.user.phone_number;
-              user.location = profileResponse.user.location;
-            }
           }
           
           if (categoriesResponse.success && Array.isArray(categoriesResponse.categories)) {
@@ -262,12 +255,6 @@ const Profile = () => {
               </Button>
             </div>
             <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
-            {user?.location && (
-              <p className="text-muted-foreground flex items-center gap-1">
-                <MapPin size={14} />
-                {user.location}
-              </p>
-            )}
             <div className="mt-2">
               {renderRatingStars(user?.rating || 0)}
             </div>
@@ -420,9 +407,9 @@ const Profile = () => {
                   <Input
                     id="location"
                     value={editForm.location}
-                    readOnly
-                    placeholder="Click 'Get Current Location' to set your location"
-                    className="pl-10 bg-muted cursor-not-allowed"
+                    onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="Your location"
+                    className="pl-10"
                   />
                 </div>
                 <Button

@@ -68,9 +68,6 @@ api.interceptors.response.use(
 
 // Authentication API
 export const authAPI = {
-  setAuthToken: (token: string) => {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  },
   login: async (phoneNumber: string, password: string) => {
     try {
       // Only use phone number for login
