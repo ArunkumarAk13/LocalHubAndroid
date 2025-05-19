@@ -382,6 +382,19 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     if (rating && sellerId && newStatus) {
       console.log('Adding rating:', { postId: req.params.id, sellerId, rating });
       
+      // Check if user has already rated this post
+      const existingRating = await db.query(
+        'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
+        [req.params.id, req.user.id]
+      );
+      
+      if (existingRating.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have already rated this post'
+        });
+      }
+      
       // Add rating - use the current user's ID as the rater
       const ratingResult = await db.query(
         'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3) RETURNING id',
