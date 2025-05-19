@@ -344,7 +344,11 @@ router.delete('/:id', auth, async (req, res, next) => {
 
 // Mark post as purchased
 router.patch('/:id/purchased', auth, async (req, res, next) => {
+  const client = await db.query('BEGIN');
+  
   try {
+    const { sellerId, rating } = req.body;
+    
     // Check if post exists and belongs to user
     const postResult = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
@@ -367,6 +371,29 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
       [newStatus, req.params.id]
     );
     
+    // If rating is provided and sellerId is provided, add the rating
+    if (rating && sellerId && newStatus) {
+      // Add rating
+      await db.query(
+        'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3)',
+        [req.params.id, sellerId, rating]
+      );
+      
+      // Update user's average rating
+      await db.query(`
+        UPDATE users
+        SET rating = (
+          SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
+          FROM posts p
+          JOIN ratings r ON p.id = r.post_id
+          WHERE p.user_id = $1
+        )
+        WHERE id = $1
+      `, [sellerId]);
+    }
+    
+    await db.query('COMMIT');
+    
     res.json({ 
       success: true,
       message: newStatus ? 'Post marked as purchased' : 'Post marked as available',
@@ -374,6 +401,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     });
     
   } catch (error) {
+    await db.query('ROLLBACK');
     console.error('Error marking post as purchased:', error);
     res.status(500).json({ 
       success: false,
