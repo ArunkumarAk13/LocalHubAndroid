@@ -382,10 +382,10 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     if (rating && sellerId && newStatus) {
       console.log('Adding rating:', { postId: req.params.id, sellerId, rating });
       
-      // Add rating
+      // Add rating - use the current user's ID as the rater
       const ratingResult = await db.query(
         'INSERT INTO ratings (post_id, user_id, rating) VALUES ($1, $2, $3) RETURNING id',
-        [req.params.id, sellerId, rating]
+        [req.params.id, req.user.id, rating]
       );
       console.log('Rating added:', ratingResult.rows[0]);
       
