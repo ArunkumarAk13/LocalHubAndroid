@@ -364,8 +364,9 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     console.log('Post check result:', {
       postFound: postCheck.rows.length > 0,
       postId: req.params.id,
-      postUserId: postCheck.rows[0]?.user_id,
-      sellerId: sellerId
+      postData: postCheck.rows[0],
+      sellerId: sellerId,
+      convertedSellerId: Number(sellerId)
     });
     
     if (postCheck.rows.length === 0) {
@@ -376,10 +377,11 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
     }
     
     // Then check if it belongs to the seller
-    if (postCheck.rows[0].user_id !== sellerId) {
+    if (postCheck.rows[0].user_id !== Number(sellerId)) {
       console.log('Post ownership mismatch:', {
         postUserId: postCheck.rows[0].user_id,
-        sellerId: sellerId
+        sellerId: sellerId,
+        convertedSellerId: Number(sellerId)
       });
       return res.status(403).json({ 
         success: false,
