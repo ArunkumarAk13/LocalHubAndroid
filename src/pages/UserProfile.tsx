@@ -5,7 +5,7 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Star, Flag } from "lucide-react";
+import { Star, Flag, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,8 @@ interface UserData {
   postCount: number;
   createdAt?: string;
   badges?: string[];
+  location?: string;
+  phone_number?: string;
 }
 
 const UserProfile = () => {
@@ -49,7 +51,9 @@ const UserProfile = () => {
             rating: response.user.rating || 0,
             postCount: response.user.postCount || 0,
             createdAt: response.user.created_at,
-            badges: ['Verified']
+            badges: ['Verified'],
+            location: response.user.location,
+            phone_number: response.user.phone_number
           });
           
           // Fetch user posts
@@ -135,6 +139,13 @@ const UserProfile = () => {
               />
             </div>
             <CardTitle className="text-2xl font-bold">{userData.name}</CardTitle>
+            <p className="text-muted-foreground">{userData.phone_number || "No phone number"}</p>
+            {userData.location && (
+              <p className="text-muted-foreground flex items-center gap-1">
+                <MapPin size={14} />
+                {userData.location}
+              </p>
+            )}
             
             <div className="mt-2">
               {renderRatingStars(userData.rating)}
