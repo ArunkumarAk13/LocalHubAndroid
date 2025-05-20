@@ -301,62 +301,6 @@ const Navigation: React.FC = () => {
         <Home size={24} />
       </Link>
       
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="nav-icon relative" disabled={loading || isInitialLoad || !isAuthenticated}>
-            <Grid size={24} />
-            {subscribedCategories.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-5 w-5 bg-accent1-500 text-white text-xs flex items-center justify-center rounded-full">
-                {subscribedCategories.length}
-              </span>
-            )}
-            {isInitialLoad && isAuthenticated && (
-              <span className="absolute top-0 right-0 h-3 w-3 bg-yellow-500 rounded-full animate-pulse"></span>
-            )}
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="w-[300px]">
-          <div className="px-3 py-2 font-semibold border-b">
-            Category Subscriptions {isInitialLoad && "(loading...)"}
-            {subscribedCategories.length > 0 && (
-              <span className="ml-2 text-sm text-muted-foreground">
-                ({subscribedCategories.length} subscribed)
-              </span>
-            )}
-          </div>
-          <div className="flex items-center px-3 py-2 sticky top-0 bg-background border-b">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <Input
-              placeholder="Search categories..."
-              value={categorySearch}
-              onChange={(e) => setCategorySearch(e.target.value)}
-              className="h-8"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="max-h-[300px] overflow-y-auto">
-            {filteredCategories.length > 0 ? (
-              filteredCategories.map((category) => (
-                <DropdownMenuCheckboxItem
-                  key={category}
-                  checked={subscribedCategories.includes(category)}
-                  onCheckedChange={() => toggleCategorySubscription(category)}
-                  disabled={loading || isInitialLoad || !isAuthenticated}
-                >
-                  {category}
-                  {loading && subscribedCategories.includes(category) ? " (updating...)" : ""}
-                </DropdownMenuCheckboxItem>
-              ))
-            ) : (
-              <div className="px-3 py-2 text-sm text-muted-foreground">
-                No categories found
-              </div>
-            )}
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      
       <Link to="/post" className="nav-icon">
         <div className="bg-accent1-500 rounded-full p-3">
           <Plus size={24} className="text-white" />
@@ -382,6 +326,10 @@ const Navigation: React.FC = () => {
             {unreadCount}
           </span>
         )}
+      </Link>
+
+      <Link to="/profile" className="nav-icon">
+        <User size={24} />
       </Link>
     </div>
   );
