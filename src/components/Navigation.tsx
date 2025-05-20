@@ -290,13 +290,9 @@ const Navigation: React.FC = () => {
     };
 
     fetchUnreadCount();
-    // Poll for new unread messages every 30 seconds instead of 5
-    const interval = setInterval(fetchUnreadCount, 30000);
-    
-    // Cleanup interval on component unmount
-    return () => {
-      clearInterval(interval);
-    };
+    // Poll for new unread messages every 5 seconds
+    const interval = setInterval(fetchUnreadCount, 10000);
+    return () => clearInterval(interval);
   }, [isAuthenticated]);
 
   return (
