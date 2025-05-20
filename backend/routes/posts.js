@@ -8,7 +8,7 @@ const router = express.Router();
 // Get all posts with filters
 router.get('/', async (req, res, next) => {
   try {
-    const { category, search, limit = 20, offset = 0 } = req.query;
+    const { category, search, limit = 20, offset = 0, userLocation } = req.query;
     
     let query = `
       SELECT 
@@ -68,7 +68,23 @@ router.get('/', async (req, res, next) => {
       query += ` AND ${conditions.join(' AND ')}`;
     }
     
-    query += ` ORDER BY p.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    // Add location-based sorting if userLocation is provided
+    if (userLocation) {
+      query += `
+        ORDER BY 
+          CASE 
+            WHEN p.location IS NULL THEN 1
+            WHEN p.location = $${queryParams.length + 1} THEN 0
+            ELSE 2
+          END,
+          p.created_at DESC
+      `;
+      queryParams.push(userLocation);
+    } else {
+      query += ` ORDER BY p.created_at DESC`;
+    }
+    
+    query += ` LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(limit, offset);
     
     const result = await db.query(query, queryParams);

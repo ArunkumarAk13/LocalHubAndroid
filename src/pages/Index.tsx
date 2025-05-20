@@ -76,7 +76,8 @@ const Index: React.FC = () => {
         setLoading(true);
         const response = await postsAPI.getAllPosts({
           category: selectedCategory || undefined,
-          search: searchQuery || undefined
+          search: searchQuery || undefined,
+          userLocation: user?.location || undefined
         });
         
         if (response.success) {
@@ -115,7 +116,7 @@ const Index: React.FC = () => {
     };
 
     loadPosts();
-  }, [selectedCategory, searchQuery, user?.id]);
+  }, [selectedCategory, searchQuery, user?.id, user?.location]);
 
   const handleViewProfile = (userId: string) => {
     navigate(`/profile/${userId}`);

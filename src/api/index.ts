@@ -157,7 +157,7 @@ export const authAPI = {
 
 // Posts API
 export const postsAPI = {
-  getAllPosts: async (filters?: { category?: string; search?: string }) => {
+  getAllPosts: async (filters?: { category?: string; search?: string; userLocation?: string }) => {
     const response = await api.get('/api/posts', { params: filters });
     return response.data;
   },
