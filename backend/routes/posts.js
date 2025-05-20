@@ -8,7 +8,31 @@ const router = express.Router();
 // Get all posts with filters
 router.get('/', async (req, res, next) => {
   try {
+    // Check database connection
+    try {
+      await db.query('SELECT 1');
+      console.log('Database connection is active');
+    } catch (dbConnError) {
+      console.error('Database connection error:', dbConnError);
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection error',
+        error: process.env.NODE_ENV === 'development' ? dbConnError.message : undefined
+      });
+    }
+
     const { category, search, limit = 20, offset = 0 } = req.query;
+    
+    // Validate parameters
+    const parsedLimit = parseInt(limit);
+    const parsedOffset = parseInt(offset);
+    
+    if (isNaN(parsedLimit) || parsedLimit < 0 || isNaN(parsedOffset) || parsedOffset < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid pagination parameters'
+      });
+    }
     
     let query = `
       SELECT 
@@ -71,14 +95,23 @@ router.get('/', async (req, res, next) => {
     query += ` ORDER BY p.created_at DESC`;
     
     query += ` LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
-    queryParams.push(limit, offset);
+    queryParams.push(parsedLimit, parsedOffset);
 
     console.log('Executing query:', query);
     console.log('Query params:', queryParams);
     
     try {
       const result = await db.query(query, queryParams);
-      console.log('Query executed successfully');
+      console.log('Query executed successfully, rows returned:', result.rows.length);
+      
+      if (!result.rows) {
+        console.error('No rows property in result:', result);
+        return res.status(500).json({
+          success: false,
+          message: 'Invalid database response'
+        });
+      }
+      
       res.json({
         success: true,
         posts: result.rows
@@ -90,14 +123,21 @@ router.get('/', async (req, res, next) => {
         code: dbError.code,
         detail: dbError.detail,
         hint: dbError.hint,
-        where: dbError.where
+        where: dbError.where,
+        stack: dbError.stack
       });
-      throw dbError;
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Database query error',
+        error: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      });
     }
   } catch (error) {
     console.error('Error in getAllPosts:', error);
     console.error('Error stack:', error.stack);
-    res.status(500).json({
+    
+    return res.status(500).json({
       success: false,
       message: 'Internal server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
