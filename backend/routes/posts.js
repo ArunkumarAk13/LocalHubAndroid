@@ -18,7 +18,6 @@ router.get('/', async (req, res, next) => {
           'id', u.id,
           'name', u.name,
           'avatar', u.avatar,
-          'rating', u.rating,
           'phone_number', COALESCE(u.phone_number, ''),
           'settings', json_build_object(
             'whatsappEnabled', COALESCE(us.whatsapp_enabled, false)
@@ -28,17 +27,7 @@ router.get('/', async (req, res, next) => {
           (SELECT json_agg(pi.image_url)
            FROM post_images pi
            WHERE pi.post_id = p.id), '[]'
-        ) AS images,
-        COALESCE(
-          (SELECT AVG(r.rating)
-           FROM ratings r
-           WHERE r.post_id = p.id), 0
-        ) AS average_rating,
-        COALESCE(
-          (SELECT COUNT(r.id)
-           FROM ratings r
-           WHERE r.post_id = p.id), 0
-        ) AS rating_count
+        ) AS images
       FROM 
         posts p
       JOIN 
@@ -112,7 +101,6 @@ router.get('/user/:userId', async (req, res, next) => {
           'id', u.id,
           'name', u.name,
           'avatar', u.avatar,
-          'rating', u.rating,
           'phone_number', COALESCE(u.phone_number, ''),
           'settings', json_build_object(
             'whatsappEnabled', COALESCE(us.whatsapp_enabled, false)
@@ -122,17 +110,7 @@ router.get('/user/:userId', async (req, res, next) => {
           (SELECT json_agg(pi.image_url)
            FROM post_images pi
            WHERE pi.post_id = p.id), '[]'
-        ) AS images,
-        COALESCE(
-          (SELECT AVG(r.rating)
-           FROM ratings r
-           WHERE r.post_id = p.id), 0
-        ) AS average_rating,
-        COALESCE(
-          (SELECT COUNT(r.id)
-           FROM ratings r
-           WHERE r.post_id = p.id), 0
-        ) AS rating_count
+        ) AS images
       FROM 
         posts p
       JOIN 
@@ -172,7 +150,6 @@ router.get('/:id', async (req, res, next) => {
           'id', u.id,
           'name', u.name,
           'avatar', u.avatar,
-          'rating', u.rating,
           'phone_number', COALESCE(u.phone_number, ''),
           'settings', json_build_object(
             'whatsappEnabled', COALESCE(us.whatsapp_enabled, false)
@@ -182,22 +159,7 @@ router.get('/:id', async (req, res, next) => {
           (SELECT json_agg(pi.image_url)
            FROM post_images pi
            WHERE pi.post_id = p.id), '[]'
-        ) AS images,
-        COALESCE(
-          (SELECT json_agg(
-             json_build_object(
-               'id', r.id,
-               'userId', ru.id,
-               'userName', ru.name,
-               'rating', r.rating,
-               'comment', r.comment,
-               'createdAt', r.created_at
-             )
-           )
-           FROM ratings r
-           JOIN users ru ON r.user_id = ru.id
-           WHERE r.post_id = p.id), '[]'
-        ) AS ratings
+        ) AS images
       FROM 
         posts p
       JOIN 
@@ -487,7 +449,6 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
           'id', u.id,
           'name', u.name,
           'avatar', u.avatar,
-          'rating', u.rating,
           'phone_number', COALESCE(u.phone_number, ''),
           'settings', json_build_object(
             'whatsappEnabled', COALESCE(us.whatsapp_enabled, false)

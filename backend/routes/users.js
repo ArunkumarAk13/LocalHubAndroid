@@ -197,7 +197,7 @@ router.get('/:id', async (req, res, next) => {
     }
     
     const userResult = await db.query(`
-      SELECT u.id, u.name, u.email, u.avatar, u.rating, u.created_at, u.phone_number, u.location,
+      SELECT u.id, u.name, u.email, u.avatar, u.created_at, u.phone_number, u.location,
              COALESCE(us.whatsapp_enabled, false) as whatsapp_enabled
       FROM users u
       LEFT JOIN user_settings us ON u.id = us.user_id
@@ -457,7 +457,7 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
 
       // Update user profile
       const result = await db.query(
-        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar), location = $4 WHERE id = $5 RETURNING id, name, email, avatar, phone_number, rating, location',
+        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar), location = $4 WHERE id = $5 RETURNING id, name, email, avatar, phone_number, location',
         [name, phoneNumber, avatarUrl, location, req.user.id]
       );
 

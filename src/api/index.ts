@@ -189,27 +189,6 @@ export const postsAPI = {
     const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
-  markAsPurchased: async (postId: string, sellerId?: string, rating?: number) => {
-    const data: { sellerId?: string; rating?: number } = {};
-    
-    if (sellerId) data.sellerId = sellerId;
-    if (rating) data.rating = rating;
-    
-    const response = await api.patch(`/api/posts/${postId}/purchased`, data);
-    return response.data;
-  },
-};
-
-// Ratings API
-export const ratingsAPI = {
-  addRating: async (postId: string, rating: number, comment?: string) => {
-    const response = await api.post('/api/ratings', { postId, rating, comment });
-    return response.data;
-  },
-  getPostRatings: async (postId: string) => {
-    const response = await api.get(`/api/ratings/post/${postId}`);
-    return response.data;
-  },
 };
 
 // Users API

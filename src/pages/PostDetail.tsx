@@ -19,12 +19,6 @@ const PostDetail = () => {
   const { user } = useAuth();
   const [post, setPost] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedRating, setSelectedRating] = useState(0);
-  const [ratingComment, setRatingComment] = useState('');
-  const [showRatingDialog, setShowRatingDialog] = useState(false);
-  const [ratings, setRatings] = useState([]);
-  const [userHasRated, setUserHasRated] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showContactDialog, setShowContactDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
@@ -44,18 +38,6 @@ const PostDetail = () => {
           setEditedTitle(response.post.title);
           setEditedDescription(response.post.description);
           
-          // Check if user has already rated this post
-          if (response.post.ratings && user) {
-            const userRating = response.post.ratings.find((r: any) => r.userId === user.id);
-            setUserHasRated(!!userRating);
-          }
-          
-          // Get all ratings for this post
-          const ratingsResponse = await ratingsAPI.getPostRatings(postId);
-          if (ratingsResponse.success) {
-            setRatings(ratingsResponse.ratings);
-          }
-
           // Get poster's WhatsApp settings
           if (response.post.posted_by.id) {
             const settingsResponse = await usersAPI.getUserProfile(response.post.posted_by.id);
@@ -78,36 +60,6 @@ const PostDetail = () => {
     loadPost();
   }, [postId, navigate, user]);
 
-  const handleAddRating = async () => {
-    if (selectedRating === 0) {
-      toast("Please select a rating");
-      return;
-    }
-    
-    try {
-      const response = await ratingsAPI.addRating(postId!, selectedRating, ratingComment);
-      
-      if (response.success) {
-        toast("Rating added successfully");
-        setShowRatingDialog(false);
-        setSelectedRating(0);
-        setRatingComment('');
-        setUserHasRated(true);
-        
-        // Refresh ratings
-        const ratingsResponse = await ratingsAPI.getPostRatings(postId!);
-        if (ratingsResponse.success) {
-          setRatings(ratingsResponse.ratings);
-        }
-      } else {
-        toast(response.message || "Failed to add rating");
-      }
-    } catch (error: any) {
-      console.error("Error adding rating:", error);
-      toast(error.response?.data?.message || "Error adding rating");
-    }
-  };
-
   const handleEdit = async () => {
     try {
       const response = await postsAPI.updatePost(postId!, {
@@ -126,37 +78,6 @@ const PostDetail = () => {
       console.error("Error updating post:", error);
       toast(error.response?.data?.message || "Error updating post");
     }
-  };
-
-  const renderRatingStars = (rating: number = 0, interactive = false) => {
-    return (
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            size={interactive ? 24 : 16}
-            className={`${
-              star <= rating
-                ? "text-accent fill-accent"
-                : "text-muted-foreground"
-            } ${interactive ? 'cursor-pointer hover:text-accent' : ''}`}
-            onClick={interactive ? () => setSelectedRating(star) : undefined}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const handlePreviousImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === 0 ? post.images.length - 1 : prev - 1
-    );
-  };
-
-  const handleNextImage = () => {
-    setCurrentImageIndex((prev) => 
-      prev === post.images.length - 1 ? 0 : prev + 1
-    );
   };
 
   const handleWhatsApp = () => {
@@ -199,8 +120,6 @@ const PostDetail = () => {
     );
   }
 
-  const canRatePost = user && post.posted_by.id !== user.id && !userHasRated;
-
   return (
     <div className="min-h-screen pb-20">
       <div className="container max-w-4xl mx-auto px-4 py-6">
@@ -216,40 +135,10 @@ const PostDetail = () => {
           <div className="relative rounded-lg overflow-hidden mb-4">
             <div className="relative aspect-[4/3] bg-gray-50">
               <img 
-                src={getImageUrl(post.images[currentImageIndex])} 
-                alt={`${post.title} - Image ${currentImageIndex + 1}`} 
+                src={getImageUrl(post.images[0])} 
+                alt={`${post.title} - Image 1`} 
                 className="w-full h-full object-contain" 
               />
-              {post.images.length > 1 && (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
-                    onClick={handlePreviousImage}
-                  >
-                    <ChevronLeft className="h-6 w-6" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
-                    onClick={handleNextImage}
-                  >
-                    <ChevronRight className="h-6 w-6" />
-                  </Button>
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                    {post.images.map((_, index) => (
-                      <div
-                        key={index}
-                        className={`w-2 h-2 rounded-full ${
-                          index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
             <Badge className="absolute top-4 right-4" variant="accent">
               {post.category}
@@ -297,7 +186,6 @@ const PostDetail = () => {
             </Avatar>
             <div>
               <p className="font-medium">{post.posted_by.name}</p>
-              {renderRatingStars(post.posted_by.rating)}
             </div>
           </div>
 
@@ -345,77 +233,7 @@ const PostDetail = () => {
                 </DialogContent>
               </Dialog>
             )}
-            
-            {canRatePost && (
-              <Dialog open={showRatingDialog} onOpenChange={setShowRatingDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="flex-1">
-                    <Star className="mr-2 h-4 w-4" /> Rate Post
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Rate this post</DialogTitle>
-                    <DialogDescription>
-                      Share your experience with this post by rating it and adding a comment
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="py-4">
-                    <div className="flex justify-center mb-4">
-                      {renderRatingStars(selectedRating, true)}
-                    </div>
-                    <Textarea
-                      placeholder="Add a comment (optional)"
-                      value={ratingComment}
-                      onChange={(e) => setRatingComment(e.target.value)}
-                      className="min-h-[100px]"
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowRatingDialog(false)}>Cancel</Button>
-                    <Button onClick={handleAddRating}>Submit Rating</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
           </div>
-
-          {/* Ratings Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Ratings & Reviews</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {ratings.length > 0 ? (
-                <div className="space-y-4">
-                  {ratings.map((rating: any) => (
-                    <div key={rating.id} className="border-b pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-center mb-2">
-                        <Avatar className="h-8 w-8 mr-2">
-                          <AvatarImage src={rating.user.avatar} alt={rating.user.name} />
-                          <AvatarFallback>{rating.user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{rating.user.name}</p>
-                          <div className="flex items-center">
-                            {renderRatingStars(rating.rating)}
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              {new Date(rating.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {rating.comment && (
-                        <p className="text-sm pl-10">{rating.comment}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-4">No ratings yet</p>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
       
