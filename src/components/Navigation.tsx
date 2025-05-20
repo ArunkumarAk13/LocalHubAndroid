@@ -301,6 +301,15 @@ const Navigation: React.FC = () => {
         <Home size={24} />
       </Link>
       
+      <Link to="/chat" className="nav-icon relative">
+        <MessageCircle size={24} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
+            {unreadCount}
+          </span>
+        )}
+      </Link>
+
       <Link to="/post" className="nav-icon">
         <div className="bg-accent1-500 rounded-full p-3">
           <Plus size={24} className="text-white" />
@@ -316,15 +325,6 @@ const Navigation: React.FC = () => {
         )}
         {isInitialLoad && isAuthenticated && (
           <span className="absolute top-0 right-0 h-3 w-3 bg-yellow-500 rounded-full animate-pulse"></span>
-        )}
-      </Link>
-      
-      <Link to="/chat" className="nav-icon relative">
-        <MessageCircle size={24} />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-            {unreadCount}
-          </span>
         )}
       </Link>
 
