@@ -11,11 +11,6 @@ router.get('/', async (req, res, next) => {
     const { category, search, limit = 20, offset = 0 } = req.query;
     
     let query = `
-      WITH current_user_location AS (
-        SELECT location 
-        FROM users 
-        WHERE id = $1
-      )
       SELECT 
         p.id, p.title, p.description, p.location, p.created_at, p.purchased,
         c.name AS category,
@@ -45,18 +40,20 @@ router.get('/', async (req, res, next) => {
            WHERE r.post_id = p.id), 0
         ) AS rating_count,
         CASE 
-          WHEN cul.location IS NOT NULL AND p.location IS NOT NULL AND 
-               SPLIT_PART(cul.location, ',', 1) ~ '^[0-9.-]+$' AND 
-               SPLIT_PART(cul.location, ',', 2) ~ '^[0-9.-]+$' AND
-               SPLIT_PART(p.location, ',', 1) ~ '^[0-9.-]+$' AND 
-               SPLIT_PART(p.location, ',', 2) ~ '^[0-9.-]+$'
+          WHEN $1 > 0 AND EXISTS (
+            SELECT 1 FROM users WHERE id = $1 AND location IS NOT NULL
+          ) AND p.location IS NOT NULL AND
+          SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 1) ~ '^[0-9.-]+$' AND 
+          SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 2) ~ '^[0-9.-]+$' AND
+          SPLIT_PART(p.location, ',', 1) ~ '^[0-9.-]+$' AND 
+          SPLIT_PART(p.location, ',', 2) ~ '^[0-9.-]+$'
           THEN
             (
               6371 * acos(
-                cos(radians(CAST(SPLIT_PART(cul.location, ',', 1) AS FLOAT))) * 
+                cos(radians(CAST(SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 1) AS FLOAT))) * 
                 cos(radians(CAST(SPLIT_PART(p.location, ',', 1) AS FLOAT))) * 
-                cos(radians(CAST(SPLIT_PART(p.location, ',', 2) AS FLOAT)) - radians(CAST(SPLIT_PART(cul.location, ',', 2) AS FLOAT))) + 
-                sin(radians(CAST(SPLIT_PART(cul.location, ',', 1) AS FLOAT))) * 
+                cos(radians(CAST(SPLIT_PART(p.location, ',', 2) AS FLOAT)) - radians(CAST(SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 2) AS FLOAT))) + 
+                sin(radians(CAST(SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 1) AS FLOAT))) * 
                 sin(radians(CAST(SPLIT_PART(p.location, ',', 1) AS FLOAT)))
               )
             )
@@ -70,8 +67,6 @@ router.get('/', async (req, res, next) => {
         categories c ON p.category_id = c.id
       LEFT JOIN
         user_settings us ON u.id = us.user_id
-      CROSS JOIN
-        current_user_location cul
       WHERE
         p.purchased = false
     `;
