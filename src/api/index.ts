@@ -262,11 +262,9 @@ export const usersAPI = {
   
   getSubscribedCategories: async () => {
     try {
-      console.log("API: Fetching subscribed categories");
       // Make sure we have a token before attempting to fetch
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log("No token available, cannot fetch subscribed categories");
         return { 
           success: false, 
           categories: [],
@@ -280,7 +278,6 @@ export const usersAPI = {
       // Add a random query parameter to prevent caching
       const cacheBuster = new Date().getTime();
       const response = await api.get(`/api/users/subscribed-categories?_=${cacheBuster}`);
-      console.log("API received subscribed categories:", response.data);
       
       // Store successfully fetched categories in localStorage with a user identifier
       if (response.data.success && Array.isArray(response.data.categories)) {
@@ -305,7 +302,6 @@ export const usersAPI = {
       // Make sure we have a token before attempting to fetch
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log("No token available, cannot fetch notifications");
         return { 
           success: false, 
           notifications: [],
@@ -319,7 +315,6 @@ export const usersAPI = {
       // Add a random query parameter to prevent caching
       const cacheBuster = new Date().getTime();
       const response = await api.get(`/api/users/notifications?_=${cacheBuster}`);
-      console.log("API response for notifications:", response.data);
       
       // Store successfully fetched notifications in localStorage for resilience
       if (response.data.success && Array.isArray(response.data.notifications)) {
