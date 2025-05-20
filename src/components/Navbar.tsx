@@ -104,19 +104,37 @@ const Navbar = () => {
   }, [isAuthenticated, user, isInitialLoad]);
 
   const toggleCategorySubscription = async (category: string) => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user) {
+      toast.error("You must be logged in to subscribe to categories");
+      return;
+    }
     
     setLoading(true);
     try {
-      const response = await usersAPI.toggleCategorySubscription(category);
-      if (response.success) {
-        setSubscribedCategories(prev => 
-          prev.includes(category)
-            ? prev.filter(c => c !== category)
-            : [...prev, category]
-        );
+      if (subscribedCategories.includes(category)) {
+        // Unsubscribe from category
+        const response = await usersAPI.unsubscribeFromCategory(category);
+        if (response.success) {
+          setSubscribedCategories(prev => prev.filter(c => c !== category));
+          toast.success(`Unsubscribed from ${category} notifications`);
+        } else {
+          toast.error(response.message || `Failed to unsubscribe from ${category}`);
+        }
       } else {
-        toast.error(response.message || `Failed to update subscription for ${category}`);
+        // Subscribe to category
+        const response = await usersAPI.subscribeToCategory(category);
+        if (response.success) {
+          setSubscribedCategories(prev => [...prev, category]);
+          toast.success(`Subscribed to ${category} notifications`);
+        } else {
+          // If we get "already subscribed" error, update our local state to match reality
+          if (response.message && response.message.includes("Already subscribed")) {
+            setSubscribedCategories(prev => 
+              prev.includes(category) ? prev : [...prev, category]
+            );
+          }
+          toast.error(response.message || `Failed to subscribe to ${category}`);
+        }
       }
     } catch (error: any) {
       console.error(`Error toggling subscription for ${category}:`, error);
