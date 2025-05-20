@@ -2,6 +2,43 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const db = require('../db');
+const WebSocket = require('ws');
+
+// Create WebSocket server
+const wss = new WebSocket.Server({ noServer: true });
+
+// Store active connections
+const clients = new Map();
+
+// WebSocket connection handler
+wss.on('connection', (ws, req) => {
+  const userId = req.user.id;
+  clients.set(userId, ws);
+
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.type === 'auth') {
+        // Handle authentication
+        ws.userId = userId;
+      }
+    } catch (error) {
+      console.error('WebSocket message error:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    clients.delete(userId);
+  });
+});
+
+// Function to broadcast message to specific user
+const broadcastToUser = (userId, data) => {
+  const client = clients.get(userId);
+  if (client && client.readyState === WebSocket.OPEN) {
+    client.send(JSON.stringify(data));
+  }
+};
 
 // Get all chats for the current user
 router.get('/', auth, async (req, res) => {
@@ -171,6 +208,11 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to access this chat' });
     }
 
+    // Get the other participant's ID
+    const otherUserId = chatCheck.rows[0].user1_id === userId 
+      ? chatCheck.rows[0].user2_id 
+      : chatCheck.rows[0].user1_id;
+
     // Insert the message
     const result = await db.query(
       `INSERT INTO messages (chat_id, sender_id, content)
@@ -184,6 +226,13 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       'UPDATE chats SET updated_at = NOW() WHERE id = $1',
       [chatId]
     );
+
+    // Broadcast new message to the other participant
+    broadcastToUser(otherUserId, {
+      type: 'new_message',
+      chatId,
+      message: result.rows[0]
+    });
 
     res.json(result.rows[0]);
   } catch (error) {
@@ -225,4 +274,4 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = { router, wss }; 
