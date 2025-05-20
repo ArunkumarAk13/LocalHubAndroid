@@ -289,33 +289,14 @@ const Navigation: React.FC = () => {
       }
     };
 
-    // Only fetch once when component mounts or when authentication changes
     fetchUnreadCount();
-
-    // Set up WebSocket connection
-    if (isAuthenticated) {
-      const token = localStorage.getItem('token');
-      const ws = new WebSocket(`${API_BASE_URL.replace('http', 'ws')}/ws?token=${token}`);
-      
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-      };
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'new_message') {
-          setUnreadCount(prev => prev + 1);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-
-      return () => {
-        ws.close();
-      };
-    }
+    // Poll for new unread messages every 30 seconds instead of 5
+    const interval = setInterval(fetchUnreadCount, 30000);
+    
+    // Cleanup interval on component unmount
+    return () => {
+      clearInterval(interval);
+    };
   }, [isAuthenticated]);
 
   return (

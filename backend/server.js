@@ -2,18 +2,15 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
-const { createServer } = require('http');
-const { router: chatRouter, wss } = require('./routes/chat');
-const auth = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
 const userRoutes = require('./routes/users');
 const ratingRoutes = require('./routes/ratings');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
-const server = createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // CORS configuration
@@ -73,35 +70,12 @@ app.use('/uploads', express.static(uploadDir, {
   }
 }));
 
-// WebSocket upgrade handler
-server.on('upgrade', (request, socket, head) => {
-  // Extract token from query string
-  const token = request.url.split('token=')[1];
-  if (!token) {
-    socket.destroy();
-    return;
-  }
-
-  // Verify token and get user
-  auth.verifyToken(token, (err, user) => {
-    if (err) {
-      socket.destroy();
-      return;
-    }
-
-    request.user = user;
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
-  });
-});
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/ratings', ratingRoutes);
-app.use('/api/chats', chatRouter);
+app.use('/api/chats', chatRoutes);
 
 // Debug route for uploads directory
 app.get('/api/debug/uploads', (req, res) => {
@@ -125,7 +99,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server with error handling
-server.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
