@@ -82,20 +82,16 @@ const Navigation: React.FC = () => {
   // Create memoized fetch functions to avoid recreating them on each render
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      console.log("Not authenticated, skipping notification fetch");
       return;
     }
     
     try {
-      console.log("Fetching notifications for user:", user.id);
       const response = await usersAPI.getNotifications();
-      console.log("Notifications response:", response);
       if (response.success) {
         setNotifications(response.notifications || []);
         setUnreadCount(response.notifications.filter(n => !n.is_read).length);
       } else {
         console.error("Failed to fetch notifications:", response.message);
-        // Only show toast on initial load, not on background refreshes
         if (isInitialLoad) {
           toast.error("Failed to load notifications");
         }
@@ -110,17 +106,13 @@ const Navigation: React.FC = () => {
 
   const fetchSubscribedCategories = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      console.log("Not authenticated, skipping subscribed categories fetch");
       setSubscribedCategories([]);
       return;
     }
     
     try {
-      console.log("Fetching subscribed categories for user:", user.id);
       const response = await usersAPI.getSubscribedCategories();
-      console.log("Subscribed categories response:", response);
       if (response.success && Array.isArray(response.categories)) {
-        console.log("Setting subscribed categories:", response.categories);
         setSubscribedCategories(response.categories);
       } else {
         console.error("Failed to fetch subscribed categories:", response.message);
@@ -143,7 +135,6 @@ const Navigation: React.FC = () => {
   // Reset state when user changes
   useEffect(() => {
     if (user?.id !== currentUserId) {
-      console.log("User changed from", currentUserId, "to", user?.id);
       setCurrentUserId(user?.id || null);
       setSubscribedCategories([]);
       setNotifications([]);
@@ -153,29 +144,21 @@ const Navigation: React.FC = () => {
   
   // Fetch data when component mounts, user changes, or route changes
   useEffect(() => {
-    // Only attempt to fetch data when user is authenticated
     if (isAuthenticated && user) {
-      console.log("User authenticated, fetching data for user ID:", user.id);
-      console.log("Current location:", location.pathname);
-      
-      // Slight delay to ensure token is properly set in localStorage
       const timer = setTimeout(() => {
         Promise.all([
           fetchNotifications(),
           fetchSubscribedCategories()
         ]).then(() => {
-          console.log("Finished loading all data for user ID:", user.id);
           setIsInitialLoad(false);
         }).catch(err => {
           console.error("Error loading initial data:", err);
           setIsInitialLoad(false);
         });
-      }, 500); // Small delay to ensure token is set
+      }, 500);
       
       return () => clearTimeout(timer);
     } else {
-      // Clear data when logged out
-      console.log("User logged out, clearing data...");
       setNotifications([]);
       setSubscribedCategories([]);
       setIsInitialLoad(true);
@@ -186,9 +169,7 @@ const Navigation: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     
-    // Refresh data every 30 seconds
     const refreshInterval = setInterval(() => {
-      console.log("Refreshing data for user ID:", user.id);
       fetchNotifications();
       fetchSubscribedCategories();
     }, 30000);
@@ -205,10 +186,7 @@ const Navigation: React.FC = () => {
     setLoading(true);
     try {
       if (subscribedCategories.includes(category)) {
-        // Unsubscribe from category
-        console.log("Unsubscribing from category for user", user.id, ":", category);
         const response = await usersAPI.unsubscribeFromCategory(category);
-        console.log("Unsubscribe response:", response);
         if (response.success) {
           setSubscribedCategories(prev => prev.filter(c => c !== category));
           toast.success(`Unsubscribed from ${category} notifications`);
@@ -216,24 +194,16 @@ const Navigation: React.FC = () => {
           toast.error(response.message || `Failed to unsubscribe from ${category}`);
         }
       } else {
-        // Subscribe to category
-        console.log("Subscribing to category for user", user.id, ":", category);
         const response = await usersAPI.subscribeToCategory(category);
-        console.log("Subscribe response:", response);
         if (response.success) {
           setSubscribedCategories(prev => [...prev, category]);
           toast.success(`Subscribed to ${category} notifications`);
-          
-          // Refresh notifications to see the new subscription notification
           fetchNotifications();
         } else {
-          // If we get "already subscribed" error, update our local state to match reality
           if (response.message && response.message.includes("Already subscribed")) {
-            console.log("Already subscribed, updating local state");
             setSubscribedCategories(prev => 
               prev.includes(category) ? prev : [...prev, category]
             );
-            // Also refresh our subscribed categories from the server
             fetchSubscribedCategories();
           }
           toast.error(response.message || `Failed to subscribe to ${category}`);
@@ -252,7 +222,6 @@ const Navigation: React.FC = () => {
     if (!isAuthenticated || !user) return;
     
     try {
-      console.log("Marking notification as read for user", user.id, ":", notificationId);
       const response = await usersAPI.markNotificationAsRead(notificationId);
       if (response.success) {
         setNotifications(prev => 

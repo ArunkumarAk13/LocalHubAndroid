@@ -143,9 +143,6 @@ const MyPosts: React.FC = () => {
       setLoadingParticipants(true);
       const response = await chatsAPI.getAllChats();
       
-      // Log the full response to understand its structure
-      console.log("Chat response:", response);
-      
       if (response.success) {
         // Extract unique participants from all chats
         const uniqueParticipants: Record<string, ChatParticipant> = {};
@@ -155,13 +152,8 @@ const MyPosts: React.FC = () => {
                       Array.isArray(response.chats) ? response.chats : 
                       Array.isArray(response.data) ? response.data : [];
         
-        console.log("Processing chats:", chats);
-        
         // Process each chat to extract participant information
         chats.forEach((chat: any) => {
-          // Log each chat object to see what properties it has
-          console.log("Processing chat:", chat);
-          
           // Check for participant_id with various property name patterns
           const participantId = chat.participant_id || 
                                (chat.participant && chat.participant.id) ||
@@ -179,7 +171,6 @@ const MyPosts: React.FC = () => {
           
           // Add participant to the unique list if they're not the current user
           if (participantId && participantId !== user?.id) {
-            console.log("Adding participant:", { participantId, participantName, participantAvatar });
             uniqueParticipants[participantId] = {
               id: participantId,
               name: participantName || "Unknown User",
@@ -190,7 +181,6 @@ const MyPosts: React.FC = () => {
         
         // Convert to array
         const participants = Object.values(uniqueParticipants);
-        console.log("Final participants:", participants);
         setChatParticipants(participants);
         
         if (participants.length === 0) {

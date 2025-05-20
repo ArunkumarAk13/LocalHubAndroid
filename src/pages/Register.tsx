@@ -165,25 +165,17 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      console.log("Platform:", Capacitor.getPlatform());
-      console.log("isAndroid:", isAndroid);
-      
       // For Android, try direct Firebase API first
       if (isAndroid) {
-        console.log("Using native Firebase authentication");
         try {
           const otpResponse = await sendNativeOTP(values.phoneNumber);
-          console.log("Native OTP response:", otpResponse);
           
           if (otpResponse.success) {
-            // Native flow initiated successfully
-            console.log("Native OTP initiated successfully");
             setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
             startOtpCountdown();
             setIsLoading(false);
             return;
           } else {
-            console.error("Native OTP failed:", otpResponse.message);
             setPhoneError(otpResponse.message || "Failed to send verification code");
           }
         } catch (nativeError) {
@@ -192,8 +184,6 @@ const Register = () => {
         }
       }
       
-      // Fallback to web implementation if native fails
-      console.log("Using web Firebase authentication");
       const otpResponse = await requestOTP(values.phoneNumber);
       
       if (otpResponse.success) {
@@ -528,11 +518,9 @@ const Register = () => {
                     length={6} 
                     onComplete={(code) => {
                       setOtpValue(code);
-                      console.log("OTP entered completely:", code);
                     }}
                     onChange={(code) => {
                       setOtpValue(code);
-                      console.log("OTP partial update:", code);
                     }}
                     isError={!!otpError}
                     disabled={isLoading}

@@ -19,13 +19,7 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Ensure the Authorization header is properly set
       config.headers.Authorization = `Bearer ${token}`;
-      
-      // Only log in development
-      if (process.env.NODE_ENV !== 'production') {
-      console.log('Making request to:', config.baseURL + config.url);
-      }
     } else {
       console.warn('No token found in localStorage for request to:', config.baseURL + config.url);
     }
@@ -39,10 +33,7 @@ api.interceptors.request.use(
 
 // Add a response interceptor to handle token expiration
 api.interceptors.response.use(
-  (response) => {
-    console.log('Response received:', response.config.baseURL + response.config.url, response.status);
-    return response;
-  },
+  (response) => response,
   (error) => {
     console.error('API Error:', {
       url: error.config?.baseURL + error.config?.url,
@@ -56,11 +47,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && 
         !error.config?.url?.includes('/auth/login') && 
         !error.config?.url?.includes('/auth/register')) {
-      console.log('Authentication error, clearing token');
       localStorage.removeItem('token');
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
-      // Don't force a page refresh - let the app handle this via React Router
     }
     return Promise.reject(error);
   }
