@@ -30,7 +30,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-
+// App routes with AuthProvider
 const AppRoutes = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
