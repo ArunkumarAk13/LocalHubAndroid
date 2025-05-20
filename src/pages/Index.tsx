@@ -100,7 +100,8 @@ const Index: React.FC = () => {
                 settings: post.posted_by.settings || { whatsappEnabled: false }
               },
               postedAt: new Date(post.created_at).toLocaleDateString(),
-              location: post.location || 'Unknown'
+              location: post.location || 'Unknown',
+              distance: post.distance ? `${Math.round(post.distance)} km` : undefined
             }));
           setPosts(filteredPosts);
         } else {

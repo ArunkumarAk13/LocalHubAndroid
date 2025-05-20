@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Star, MessageCircle, Phone } from 'lucide-react';
+import { Star, MessageCircle, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import ChatBox from './ChatBox';
 import { API_BASE_URL } from '@/api/config';
+import { Link } from 'react-router-dom';
 
 export interface NeedCardProps {
   id: string;
@@ -29,12 +30,13 @@ export interface NeedCardProps {
     avatar: string;
     rating: number;
     phone_number: string;
-    settings?: {
+    settings: {
       whatsappEnabled: boolean;
     };
   };
   postedAt: string;
   location: string;
+  distance?: string;
   onProfileClick: (userId: string) => void;
 }
 
@@ -47,6 +49,7 @@ const NeedCard: React.FC<NeedCardProps> = ({
   postedBy,
   postedAt,
   location,
+  distance,
   onProfileClick
 }) => {
   const navigate = useNavigate();
@@ -133,8 +136,18 @@ const NeedCard: React.FC<NeedCardProps> = ({
           </Badge>
         </div>
         <CardContent className="p-2">
-          <h3 className="font-bold text-sm line-clamp-1 mb-1">{title}</h3>
-          <p className="text-xs text-gray-500 truncate">Location: {location}</p>
+          <Link to={`/post/${id}`}>
+            <h3 className="font-bold text-sm line-clamp-1 mb-1">{title}</h3>
+            <p className="text-xs text-gray-500 truncate">{description}</p>
+          </Link>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <MapPin size={14} />
+              <span>{location}</span>
+              {distance && <span className="ml-1">({distance})</span>}
+            </div>
+            <span>{postedAt}</span>
+          </div>
         </CardContent>
         <CardFooter className="hidden min-[550px]:flex p-2 pt-0 justify-between items-center border-t mt-auto">
           <div 

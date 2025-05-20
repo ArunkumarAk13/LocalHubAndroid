@@ -11,6 +11,11 @@ router.get('/', async (req, res, next) => {
     const { category, search, limit = 20, offset = 0 } = req.query;
     
     let query = `
+      WITH current_user_location AS (
+        SELECT location 
+        FROM users 
+        WHERE id = $1
+      )
       SELECT 
         p.id, p.title, p.description, p.location, p.created_at, p.purchased,
         c.name AS category,
@@ -38,7 +43,20 @@ router.get('/', async (req, res, next) => {
           (SELECT COUNT(r.id)
            FROM ratings r
            WHERE r.post_id = p.id), 0
-        ) AS rating_count
+        ) AS rating_count,
+        CASE 
+          WHEN cul.location IS NOT NULL AND p.location IS NOT NULL THEN
+            (
+              6371 * acos(
+                cos(radians(CAST(SPLIT_PART(cul.location, ',', 1) AS FLOAT))) * 
+                cos(radians(CAST(SPLIT_PART(p.location, ',', 1) AS FLOAT))) * 
+                cos(radians(CAST(SPLIT_PART(p.location, ',', 2) AS FLOAT)) - radians(CAST(SPLIT_PART(cul.location, ',', 2) AS FLOAT))) + 
+                sin(radians(CAST(SPLIT_PART(cul.location, ',', 1) AS FLOAT))) * 
+                sin(radians(CAST(SPLIT_PART(p.location, ',', 1) AS FLOAT)))
+              )
+            )
+          ELSE NULL
+        END AS distance
       FROM 
         posts p
       JOIN 
@@ -47,11 +65,13 @@ router.get('/', async (req, res, next) => {
         categories c ON p.category_id = c.id
       LEFT JOIN
         user_settings us ON u.id = us.user_id
+      CROSS JOIN
+        current_user_location cul
       WHERE
         p.purchased = false
     `;
     
-    const queryParams = [];
+    const queryParams = [req.user?.id || 0];
     let conditions = [];
     
     if (category) {
@@ -68,7 +88,15 @@ router.get('/', async (req, res, next) => {
       query += ` AND ${conditions.join(' AND ')}`;
     }
     
-    query += ` ORDER BY p.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    // Add distance-based sorting if user has location
+    query += ` ORDER BY 
+      CASE 
+        WHEN distance IS NOT NULL THEN distance 
+        ELSE 999999 
+      END ASC, 
+      p.created_at DESC`;
+    
+    query += ` LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(limit, offset);
     
     const result = await db.query(query, queryParams);
