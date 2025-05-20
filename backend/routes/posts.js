@@ -45,7 +45,12 @@ router.get('/', async (req, res, next) => {
            WHERE r.post_id = p.id), 0
         ) AS rating_count,
         CASE 
-          WHEN cul.location IS NOT NULL AND p.location IS NOT NULL THEN
+          WHEN cul.location IS NOT NULL AND p.location IS NOT NULL AND 
+               SPLIT_PART(cul.location, ',', 1) ~ '^[0-9.-]+$' AND 
+               SPLIT_PART(cul.location, ',', 2) ~ '^[0-9.-]+$' AND
+               SPLIT_PART(p.location, ',', 1) ~ '^[0-9.-]+$' AND 
+               SPLIT_PART(p.location, ',', 2) ~ '^[0-9.-]+$'
+          THEN
             (
               6371 * acos(
                 cos(radians(CAST(SPLIT_PART(cul.location, ',', 1) AS FLOAT))) * 
@@ -98,6 +103,9 @@ router.get('/', async (req, res, next) => {
     
     query += ` LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(limit, offset);
+
+    console.log('Executing query:', query);
+    console.log('Query params:', queryParams);
     
     const result = await db.query(query, queryParams);
     
@@ -106,6 +114,7 @@ router.get('/', async (req, res, next) => {
       posts: result.rows
     });
   } catch (error) {
+    console.error('Error in getAllPosts:', error);
     next(error);
   }
 });
