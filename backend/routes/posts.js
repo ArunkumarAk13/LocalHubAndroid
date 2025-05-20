@@ -38,27 +38,7 @@ router.get('/', async (req, res, next) => {
           (SELECT COUNT(r.id)
            FROM ratings r
            WHERE r.post_id = p.id), 0
-        ) AS rating_count,
-        CASE 
-          WHEN $1 > 0 AND EXISTS (
-            SELECT 1 FROM users WHERE id = $1 AND location IS NOT NULL
-          ) AND p.location IS NOT NULL AND
-          SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 1) ~ '^[0-9.-]+$' AND 
-          SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 2) ~ '^[0-9.-]+$' AND
-          SPLIT_PART(p.location, ',', 1) ~ '^[0-9.-]+$' AND 
-          SPLIT_PART(p.location, ',', 2) ~ '^[0-9.-]+$'
-          THEN
-            (
-              6371 * acos(
-                cos(radians(CAST(SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 1) AS FLOAT))) * 
-                cos(radians(CAST(SPLIT_PART(p.location, ',', 1) AS FLOAT))) * 
-                cos(radians(CAST(SPLIT_PART(p.location, ',', 2) AS FLOAT)) - radians(CAST(SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 2) AS FLOAT))) + 
-                sin(radians(CAST(SPLIT_PART((SELECT location FROM users WHERE id = $1), ',', 1) AS FLOAT))) * 
-                sin(radians(CAST(SPLIT_PART(p.location, ',', 1) AS FLOAT)))
-              )
-            )
-          ELSE NULL
-        END AS distance
+        ) AS rating_count
       FROM 
         posts p
       JOIN 
@@ -71,7 +51,7 @@ router.get('/', async (req, res, next) => {
         p.purchased = false
     `;
     
-    const queryParams = [req.user?.id || 0];
+    const queryParams = [];
     let conditions = [];
     
     if (category) {
@@ -88,13 +68,7 @@ router.get('/', async (req, res, next) => {
       query += ` AND ${conditions.join(' AND ')}`;
     }
     
-    // Add distance-based sorting if user has location
-    query += ` ORDER BY 
-      CASE 
-        WHEN distance IS NOT NULL THEN distance 
-        ELSE 999999 
-      END ASC, 
-      p.created_at DESC`;
+    query += ` ORDER BY p.created_at DESC`;
     
     query += ` LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(limit, offset);
@@ -102,15 +76,32 @@ router.get('/', async (req, res, next) => {
     console.log('Executing query:', query);
     console.log('Query params:', queryParams);
     
-    const result = await db.query(query, queryParams);
-    
-    res.json({
-      success: true,
-      posts: result.rows
-    });
+    try {
+      const result = await db.query(query, queryParams);
+      console.log('Query executed successfully');
+      res.json({
+        success: true,
+        posts: result.rows
+      });
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      console.error('Error details:', {
+        message: dbError.message,
+        code: dbError.code,
+        detail: dbError.detail,
+        hint: dbError.hint,
+        where: dbError.where
+      });
+      throw dbError;
+    }
   } catch (error) {
     console.error('Error in getAllPosts:', error);
-    next(error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
