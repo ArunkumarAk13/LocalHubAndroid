@@ -73,7 +73,7 @@ const Navigation: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   
   const filteredCategories = CATEGORIES.filter(category =>
     category.toLowerCase().includes(categorySearch.toLowerCase())
@@ -172,7 +172,7 @@ const Navigation: React.FC = () => {
     const refreshInterval = setInterval(() => {
       fetchNotifications();
       fetchSubscribedCategories();
-    }, 30000);
+    }, 10000); // Poll every 10 seconds instead of 30
     
     return () => clearInterval(refreshInterval);
   }, [isAuthenticated, user, fetchNotifications, fetchSubscribedCategories]);
@@ -288,7 +288,7 @@ const Navigation: React.FC = () => {
       <Link to="/notifications" className="nav-icon relative">
         <Bell size={24} />
         {unreadNotificationsCount > 0 && (
-          <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
+          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
             {unreadNotificationsCount}
           </span>
         )}
