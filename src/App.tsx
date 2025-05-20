@@ -35,7 +35,8 @@ const AppRoutes = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
   const isChatPage = location.pathname.startsWith("/chat");
-  const hideNavbar = isAuthPage || isChatPage;
+  const isIndexPage = location.pathname === "/";
+  const hideNavbar = isAuthPage || isChatPage || !isIndexPage;
   
   return (
     <>

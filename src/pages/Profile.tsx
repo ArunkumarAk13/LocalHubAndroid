@@ -182,6 +182,12 @@ const Profile = () => {
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      };
+
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
@@ -200,11 +206,28 @@ const Profile = () => {
         },
         (error) => {
           console.error('Error getting location:', error);
-          toast.error('Failed to get current location');
-        }
+          let errorMessage = 'Failed to get current location';
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = 'Location permission denied. Please enable location access in your device settings.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = 'Location information is unavailable. Please try again.';
+              break;
+            case error.TIMEOUT:
+              errorMessage = 'Location request timed out. Please try again.';
+              break;
+            default:
+              errorMessage = 'An unknown error occurred while getting location.';
+          }
+          
+          toast.error(errorMessage);
+        },
+        options
       );
     } else {
-      toast.error('Geolocation is not supported by your browser');
+      toast.error('Geolocation is not supported by your browser or device');
     }
   };
 
