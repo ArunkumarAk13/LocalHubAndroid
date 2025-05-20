@@ -21,6 +21,9 @@ import { ChevronLeft, Trash, CheckCircle, Loader2, Star } from 'lucide-react';
 import { postsAPI, chatsAPI, ratingsAPI } from '@/api';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/api/config';
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Post {
   id: string;
@@ -63,6 +66,13 @@ const MyPosts: React.FC = () => {
   const [selectedSeller, setSelectedSeller] = useState<ChatParticipant | null>(null);
   const [selectedRating, setSelectedRating] = useState(0);
   const [chatParticipants, setChatParticipants] = useState<ChatParticipant[]>([]);
+
+  // New states for user selection and rating
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [rating, setRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
 
   // Load user posts
   useEffect(() => {
@@ -317,6 +327,50 @@ const MyPosts: React.FC = () => {
     );
   };
 
+  // Add this function to handle user selection
+  const handleUserSelect = (user: any) => {
+    setSelectedUser(user);
+  };
+
+  // Add this function to handle rating submission
+  const handleRatingSubmit = async () => {
+    if (!selectedPost || !selectedUser || rating === 0) {
+      toast.error("Please select a user and provide a rating");
+      return;
+    }
+
+    try {
+      const response = await postsAPI.markAsPurchased(
+        selectedPost.id,
+        selectedUser.id,
+        rating,
+        ratingComment
+      );
+
+      if (response.success) {
+        toast.success("Post marked as purchased and rating submitted");
+        setShowPurchaseDialog(false);
+        setSelectedPost(null);
+        setSelectedUser(null);
+        setRating(0);
+        setRatingComment('');
+        // Refresh posts
+        loadPosts();
+      } else {
+        toast.error(response.message || "Failed to mark as purchased");
+      }
+    } catch (error: any) {
+      console.error("Error marking as purchased:", error);
+      toast.error(error.response?.data?.message || "Error marking as purchased");
+    }
+  };
+
+  // Modify the existing markAsPurchased function
+  const markAsPurchased = async (post: any) => {
+    setSelectedPost(post);
+    setShowPurchaseDialog(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -548,6 +602,81 @@ const MyPosts: React.FC = () => {
               disabled={selectedRating === 0}
             >
               Submit Rating & Complete Purchase
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Purchase Dialog */}
+      <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Purchased</DialogTitle>
+            <DialogDescription>
+              Select the user who purchased this item and provide a rating
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* User Selection */}
+            <div>
+              <Label>Select User</Label>
+              <Select
+                value={selectedUser?.id}
+                onValueChange={(value) => {
+                  const user = chatParticipants.find(p => p.id === value);
+                  handleUserSelect(user);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a user" />
+                </SelectTrigger>
+                <SelectContent>
+                  {chatParticipants.map((participant) => (
+                    <SelectItem key={participant.id} value={participant.id}>
+                      {participant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Rating */}
+            <div>
+              <Label>Rating</Label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={24}
+                    className={`cursor-pointer ${
+                      star <= rating
+                        ? "text-yellow-400 fill-yellow-400"
+                        : "text-gray-300"
+                    }`}
+                    onClick={() => setRating(star)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Rating Comment */}
+            <div>
+              <Label>Comment (Optional)</Label>
+              <Textarea
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                placeholder="Add a comment about your experience..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRatingSubmit}>
+              Submit Rating & Mark as Purchased
             </Button>
           </DialogFooter>
         </DialogContent>

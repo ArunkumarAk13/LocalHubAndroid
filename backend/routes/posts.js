@@ -323,6 +323,8 @@ router.delete('/:id', auth, async (req, res, next) => {
 // Mark post as purchased
 router.patch('/:id/purchased', auth, async (req, res, next) => {
   try {
+    const { sellerId, rating, comment } = req.body;
+    
     // Check if post exists and belongs to user
     const postResult = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
@@ -335,22 +337,53 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
         message: 'Post not found or you do not have permission to modify it' 
       });
     }
-    
-    // Toggle the purchased status
-    const newStatus = !postResult.rows[0].purchased;
-    
-    // Update post
-    await db.query(
-      'UPDATE posts SET purchased = $1 WHERE id = $2',
-      [newStatus, req.params.id]
-    );
-    
-    res.json({ 
-      success: true,
-      message: newStatus ? 'Post marked as purchased' : 'Post marked as available',
-      purchased: newStatus
-    });
-    
+
+    // Start a transaction
+    await db.query('BEGIN');
+
+    try {
+      // Toggle the purchased status
+      const newStatus = !postResult.rows[0].purchased;
+      
+      // Update post
+      await db.query(
+        'UPDATE posts SET purchased = $1 WHERE id = $2',
+        [newStatus, req.params.id]
+      );
+
+      // If rating is provided, update user rating
+      if (rating && sellerId) {
+        // Add rating to ratings table
+        await db.query(
+          'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
+          [req.params.id, sellerId, rating, comment]
+        );
+
+        // Update user's average rating
+        await db.query(`
+          UPDATE users 
+          SET rating = (
+            SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
+            FROM ratings r
+            JOIN posts p ON r.post_id = p.id
+            WHERE p.user_id = $1
+          )
+          WHERE id = $1
+        `, [sellerId]);
+      }
+      
+      await db.query('COMMIT');
+      
+      res.json({ 
+        success: true,
+        message: newStatus ? 'Post marked as purchased' : 'Post marked as available',
+        purchased: newStatus
+      });
+      
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
     console.error('Error marking post as purchased:', error);
     res.status(500).json({ 

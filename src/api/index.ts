@@ -189,6 +189,16 @@ export const postsAPI = {
     const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
+  markAsPurchased: async (postId: string, sellerId?: string, rating?: number, comment?: string) => {
+    const data: { sellerId?: string; rating?: number; comment?: string } = {};
+    
+    if (sellerId) data.sellerId = sellerId;
+    if (rating) data.rating = rating;
+    if (comment) data.comment = comment;
+    
+    const response = await api.patch(`/api/posts/${postId}/purchased`, data);
+    return response.data;
+  },
 };
 
 // Users API
