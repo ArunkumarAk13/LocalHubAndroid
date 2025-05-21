@@ -16,9 +16,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { X, Images, FilePlus, Search, Loader2 } from 'lucide-react';
 import { postsAPI } from '@/api';
-import { Capacitor } from '@capacitor/core';
-import { Platform } from 'react-native';
-import { Camera, CameraResultType } from '@capacitor/camera';
+
+// Platform detection
+const isNative = () => {
+  // Check if we're in a native environment by looking for Capacitor in window
+  return typeof window !== 'undefined' && 
+         window.Capacitor !== undefined && 
+         window.Capacitor.isNativePlatform?.() === true;
+};
 
 const CATEGORIES = [
   // Electronics & Gadgets
@@ -69,6 +74,7 @@ const Post = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
+  const [post, setPost] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -83,13 +89,14 @@ const Post = () => {
       postsAPI.getPostById(postId)
         .then(response => {
           if (response.success) {
-            const post = response.post;
+            const postData = response.post;
+            setPost(postData);
             setFormData({
-              title: post.title,
-              description: post.description,
-              category: post.category,
-              location: post.location || '',
-              images: post.images.map((url: string) => ({
+              title: postData.title,
+              description: postData.description,
+              category: postData.category,
+              location: postData.location || '',
+              images: postData.images.map((url: string) => ({
                 preview: url,
                 url: url,
                 isExisting: true
@@ -125,74 +132,37 @@ const Post = () => {
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isNative = Capacitor.isNativePlatform();
-    
-    if (isNative) {
-      try {
-        // Use Capacitor Camera plugin for native platforms
-        const image = await Camera.getPhoto({
-          quality: 90,
-          allowEditing: true,
-          resultType: CameraResultType.DataUrl,
-          source: 'PHOTOLIBRARY'
-        });
-
-        if (image.dataUrl) {
-          const existingImages = formData.images.filter(img => img.isExisting);
-          const newImages = [...formData.images.filter(img => !img.isExisting)];
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const existingImages = formData.images.filter(img => img.isExisting);
+      const newImages = [...formData.images.filter(img => !img.isExisting)];
+      
+      for (let i = 0; i < files.length; i++) {
+        if (existingImages.length + newImages.length < MAX_PHOTOS) {
+          const file = files[i];
+          if (!file.type.startsWith('image/')) {
+            toast.error('Please select only image files');
+            continue;
+          }
           
-          if (existingImages.length + newImages.length < MAX_PHOTOS) {
-            newImages.push({
-              preview: image.dataUrl,
-              file: null
-            });
-            
-            setFormData(prev => ({ 
-              ...prev, 
-              images: [...existingImages, ...newImages]
-            }));
-          } else {
-            toast.error(`Maximum photos reached. You can only upload up to ${MAX_PHOTOS} photos`);
-          }
+          const blob = new Blob([file], { type: file.type });
+          const preview = URL.createObjectURL(blob);
+          
+          newImages.push({
+            file: file,
+            preview: preview
+          });
+        } else {
+          toast.error(`Maximum photos reached. You can only upload up to ${MAX_PHOTOS} photos`);
+          break;
         }
-      } catch (error) {
-        console.error('Error selecting image:', error);
-        toast.error('Failed to select image');
       }
-    } else {
-      // Web platform handling
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        const existingImages = formData.images.filter(img => img.isExisting);
-        const newImages = [...formData.images.filter(img => !img.isExisting)];
-        
-        for (let i = 0; i < files.length; i++) {
-          if (existingImages.length + newImages.length < MAX_PHOTOS) {
-            const file = files[i];
-            if (!file.type.startsWith('image/')) {
-              toast.error('Please select only image files');
-              continue;
-            }
-            
-            const blob = new Blob([file], { type: file.type });
-            const preview = URL.createObjectURL(blob);
-            
-            newImages.push({
-              file: file,
-              preview: preview
-            });
-          } else {
-            toast.error(`Maximum photos reached. You can only upload up to ${MAX_PHOTOS} photos`);
-            break;
-          }
-        }
-        
-        setFormData(prev => ({ 
-          ...prev, 
-          images: [...existingImages, ...newImages]
-        }));
-        e.target.value = '';
-      }
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        images: [...existingImages, ...newImages]
+      }));
+      e.target.value = '';
     }
   };
 
@@ -207,14 +177,11 @@ const Post = () => {
     try {
       // Validate required fields
       if (!formData.title.trim() || !formData.description.trim() || !formData.category) {
-        toast.show({
-          title: 'Error',
-          description: 'Please fill in all required fields',
-          status: 'error',
-          duration: 3000,
-        });
+        toast.error('Please fill in all required fields');
         return;
       }
+
+      setIsSubmitting(true);
 
       // Create FormData
       const postData = new FormData();
@@ -226,38 +193,13 @@ const Post = () => {
       }
 
       // Handle images
-      const isNative = Capacitor.isNativePlatform();
-      if (isNative) {
-        // For native platforms, convert images to base64
-        const base64Images = [];
-        for (const image of formData.images) {
-          if (image.preview) {
-            try {
-              // For native platforms, the preview URL is already a base64 string
-              const base64Data = image.preview.split(',')[1];
-              if (base64Data) {
-                base64Images.push(base64Data);
-              }
-            } catch (error) {
-              console.error('Error processing image:', error);
-            }
-          }
-        }
-        console.log('Converted images to base64:', base64Images.length);
-        postData.append('images', JSON.stringify(base64Images));
-      } else {
-        // For web, append files directly
-        formData.images.forEach((image, index) => {
+      formData.images
+        .filter(image => image.file && !image.isExisting)
+        .forEach((image, index) => {
           if (image.file) {
-            const filename = `image-${Date.now()}-${index}.jpg`;
-            postData.append('images', {
-              uri: URL.createObjectURL(image.file),
-              type: 'image/jpeg',
-              name: filename,
-            } as any);
+            postData.append('images', image.file);
           }
         });
-      }
 
       // Log the final FormData contents
       console.log('Submitting post with data:', {
@@ -266,10 +208,10 @@ const Post = () => {
         category: formData.category,
         location: formData.location,
         imagesCount: formData.images.length,
-        platform: isNative ? 'native' : 'web',
         hasImages: formData.images.length > 0,
         imagePreviews: formData.images.map(img => ({
           hasPreview: !!img.preview,
+          isExisting: !!img.isExisting,
           previewLength: img.preview?.length || 0
         }))
       });
@@ -293,7 +235,6 @@ const Post = () => {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
-        platform: Capacitor.getPlatform(),
         formData: {
           title: formData.title,
           description: formData.description,
@@ -302,24 +243,37 @@ const Post = () => {
           images: formData.images.map(img => ({
             hasPreview: !!img.preview,
             hasFile: !!img.file,
-            hasUrl: !!img.url,
+            isExisting: !!img.isExisting,
             previewLength: img.preview?.length || 0
           }))
         }
       });
       
-      // Show more specific error message
       const errorMessage = error.response?.data?.message || error.message || "Failed to save post. Please try again.";
       toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleMarkAsPurchased = async (rating: number, comment?: string) => {
+    if (!postId) {
+      toast.error('Post ID is missing');
+      return;
+    }
+
     try {
-      const response = await markPostAsPurchased(post.id, rating, comment);
-      toast.success('Post marked as purchased and rated successfully');
-      // Refresh the post data
-      fetchPost();
+      const response = await postsAPI.markPostAsPurchased(postId, rating, comment);
+      if (response.success) {
+        toast.success('Post marked as purchased and rated successfully');
+        // Refresh the post data
+        const updatedPost = await postsAPI.getPostById(postId);
+        if (updatedPost.success) {
+          setPost(updatedPost.post);
+        }
+      } else {
+        throw new Error(response.message || 'Failed to mark post as purchased');
+      }
     } catch (error: any) {
       console.error('Error marking post as purchased:', error);
       toast.error(error.response?.data?.message || 'Failed to mark post as purchased');
@@ -521,7 +475,7 @@ const Post = () => {
           </div>
         </form>
 
-        {!post.purchased && post.posted_by.id !== user?.id && (
+        {post && !post.purchased && post.posted_by?.id !== user?.id && (
           <Button
             onClick={() => {
               // Show rating dialog
