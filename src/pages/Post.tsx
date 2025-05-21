@@ -314,6 +314,18 @@ const Post = () => {
     }
   };
 
+  const handleMarkAsPurchased = async (rating: number, comment?: string) => {
+    try {
+      const response = await markPostAsPurchased(post.id, rating, comment);
+      toast.success('Post marked as purchased and rated successfully');
+      // Refresh the post data
+      fetchPost();
+    } catch (error: any) {
+      console.error('Error marking post as purchased:', error);
+      toast.error(error.response?.data?.message || 'Failed to mark post as purchased');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -508,6 +520,27 @@ const Post = () => {
             </Button>
           </div>
         </form>
+
+        {!post.purchased && post.posted_by.id !== user?.id && (
+          <Button
+            onClick={() => {
+              // Show rating dialog
+              const rating = prompt('Rate the seller (1-5):');
+              if (rating) {
+                const numRating = parseInt(rating);
+                if (numRating >= 1 && numRating <= 5) {
+                  const comment = prompt('Add a comment (optional):');
+                  handleMarkAsPurchased(numRating, comment || undefined);
+                } else {
+                  toast.error('Please enter a rating between 1 and 5');
+                }
+              }
+            }}
+            className="w-full"
+          >
+            Mark as Purchased
+          </Button>
+        )}
       </div>
 
       <Navigation />

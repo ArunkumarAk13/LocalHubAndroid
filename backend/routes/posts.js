@@ -345,76 +345,92 @@ router.delete('/:id', auth, async (req, res, next) => {
   }
 });
 
-// Mark post as purchased
-router.patch('/:id/purchased', auth, async (req, res, next) => {
+// Mark post as purchased and submit rating
+router.post('/:id/purchase', auth, async (req, res, next) => {
+  const client = await db.getClient();
+  
   try {
-    const { sellerId, rating, comment } = req.body;
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const { rating, comment } = req.body;
     
-    // Check if post exists and belongs to user
-    const postResult = await db.query(
-      'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.id]
+    // Check if post exists and is not already purchased
+    const postCheck = await client.query(
+      'SELECT user_id FROM posts WHERE id = $1 AND purchased = false',
+      [id]
     );
     
-    if (postResult.rows.length === 0) {
-      return res.status(404).json({ 
+    if (postCheck.rows.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: 'Post not found or you do not have permission to modify it' 
+        message: 'Post not found or already purchased'
       });
     }
-
-    // Start a transaction
-    await db.query('BEGIN');
-
-    try {
-      // Toggle the purchased status
-      const newStatus = !postResult.rows[0].purchased;
-      
-      // Update post
-      await db.query(
-        'UPDATE posts SET purchased = $1 WHERE id = $2',
-        [newStatus, req.params.id]
-      );
-
-      // If rating is provided, update user rating
-      if (rating && sellerId) {
-        // Add rating to ratings table
-        await db.query(
-          'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
-          [req.params.id, sellerId, rating, comment]
-        );
-
-        // Update user's average rating
-        await db.query(`
-          UPDATE users 
-          SET rating = (
-            SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
-            FROM ratings r
-            JOIN posts p ON r.post_id = p.id
-            WHERE p.user_id = $1
-          )
-          WHERE id = $1
-        `, [sellerId]);
+    
+    const sellerId = postCheck.rows[0].user_id;
+    
+    // Check if user is not rating their own post
+    if (sellerId === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'You cannot purchase and rate your own post'
+      });
+    }
+    
+    // Check if user has already rated this post
+    const existingRating = await client.query(
+      'SELECT id FROM ratings WHERE post_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    
+    if (existingRating.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already rated this post'
+      });
+    }
+    
+    // Mark post as purchased
+    await client.query(
+      'UPDATE posts SET purchased = true WHERE id = $1',
+      [id]
+    );
+    
+    // Create rating
+    const ratingResult = await client.query(
+      'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4) RETURNING id',
+      [id, req.user.id, rating, comment]
+    );
+    
+    // Update seller's average rating
+    await client.query(`
+      UPDATE users 
+      SET rating = (
+        SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
+        FROM ratings r
+        JOIN posts p ON r.post_id = p.id
+        WHERE p.user_id = $1
+      )
+      WHERE id = $1
+    `, [sellerId]);
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      success: true,
+      message: 'Post marked as purchased and rated successfully',
+      rating: {
+        id: ratingResult.rows[0].id,
+        rating,
+        comment,
+        created_at: new Date()
       }
-      
-      await db.query('COMMIT');
-      
-      res.json({ 
-        success: true,
-        message: newStatus ? 'Post marked as purchased' : 'Post marked as available',
-        purchased: newStatus
-      });
-      
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
-  } catch (error) {
-    console.error('Error marking post as purchased:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Failed to update post status' 
     });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
   }
 });
 

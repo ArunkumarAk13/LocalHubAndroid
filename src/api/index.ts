@@ -533,4 +533,17 @@ export const chatsAPI = {
   // Add other chat-related API functions here
 };
 
+export const markPostAsPurchased = async (postId: number, rating: number, comment?: string) => {
+  try {
+    const response = await api.post(`/posts/${postId}/purchase`, {
+      rating,
+      comment
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error marking post as purchased:', error);
+    throw error;
+  }
+};
+
 export default api;
