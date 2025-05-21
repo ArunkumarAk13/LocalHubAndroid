@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
+const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -191,11 +192,11 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create a new post
-router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
+router.post('/', auth, async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
-    const { title, description, category, location } = req.body;
+    const { title, description, category, location, images } = req.body;
     
     if (!title || !description || !category) {
       return res.status(400).json({
@@ -230,7 +231,29 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     
     // Handle image uploads
     const imageUrls = [];
-    if (req.files && req.files.length > 0) {
+    
+    // Check if we have base64 images (from Android)
+    if (images && Array.isArray(images)) {
+      console.log('Processing base64 images:', images.length);
+      for (const base64Image of images) {
+        try {
+          // Upload base64 image to Cloudinary
+          const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${base64Image}`, {
+            folder: 'localhub/post-images',
+            transformation: [{ width: 1200, height: 1200, crop: 'limit' }]
+          });
+          
+          console.log('Uploaded base64 image to Cloudinary:', result.secure_url);
+          await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, result.secure_url]);
+          imageUrls.push(result.secure_url);
+        } catch (error) {
+          console.error('Error uploading base64 image:', error);
+        }
+      }
+    }
+    // Check if we have files (from web)
+    else if (req.files && req.files.length > 0) {
+      console.log('Processing file uploads:', req.files.length);
       for (const file of req.files) {
         // Cloudinary provides the URL in the path property
         const imageUrl = file.path;
@@ -238,8 +261,10 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
         await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
         imageUrls.push(imageUrl);
       }
-    } else {
-      // Add a default image if no images were uploaded
+    }
+    
+    // Add a default image if no images were uploaded
+    if (imageUrls.length === 0) {
       const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
       await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
       imageUrls.push(defaultImage);

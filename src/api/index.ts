@@ -170,12 +170,100 @@ export const postsAPI = {
     return response.data;
   },
   createPost: async (postData: FormData) => {
-    const response = await api.post('/api/posts', postData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Debug logging for FormData contents
+      console.log('FormData contents before sending:');
+      for (let [key, value] of postData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}: File - ${value.name} (${value.type}, ${value.size} bytes)`);
+        } else {
+          console.log(`${key}: ${value}`);
+        }
+      }
+
+      // For native platforms, we need to handle the data differently
+      const isNative = Capacitor.isNativePlatform();
+      
+      let requestConfig;
+      if (isNative) {
+        // For native platforms, send as JSON with base64 encoded images
+        const jsonData: any = {};
+        
+        // Add text fields
+        for (let [key, value] of postData.entries()) {
+          if (key !== 'images') {
+            jsonData[key] = value;
+          }
+        }
+        
+        // Handle images
+        const imagesEntry = postData.get('images');
+        if (imagesEntry) {
+          try {
+            jsonData.images = JSON.parse(imagesEntry as string);
+          } catch (error) {
+            console.error('Error parsing images JSON:', error);
+            jsonData.images = [];
+          }
+        } else {
+          jsonData.images = [];
+        }
+        
+        requestConfig = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          data: jsonData
+        };
+      } else {
+        // For web, use FormData as is
+        requestConfig = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          data: postData
+        };
+      }
+
+      console.log('Request config:', {
+        platform: Capacitor.getPlatform(),
+        headers: requestConfig.headers,
+        data: isNative ? 'JSON data with base64 images' : 'FormData'
+      });
+
+      // Make the request
+      const response = await api.post('/api/posts', requestConfig.data, requestConfig);
+      
+      console.log('Post creation response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      // Enhanced error logging
+      console.error("Error creating post:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.config?.headers,
+        data: error.config?.data,
+        platform: Capacitor.getPlatform(),
+        formData: Array.from(postData.entries()).map(([key, value]) => ({
+          key,
+          value: value instanceof File ? `File: ${value.name}` : value
+        }))
+      });
+      
+      if (error.response?.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
   },
   updatePost: async (postId: string, postData: FormData) => {
     const response = await api.put(`/api/posts/${postId}`, postData, {

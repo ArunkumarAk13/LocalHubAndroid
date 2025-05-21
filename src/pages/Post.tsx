@@ -16,6 +16,9 @@ import {
 import { Label } from "@/components/ui/label";
 import { X, Images, FilePlus, Search, Loader2 } from 'lucide-react';
 import { postsAPI } from '@/api';
+import { Capacitor } from '@capacitor/core';
+import { Platform } from 'react-native';
+import { Camera, CameraResultType } from '@capacitor/camera';
 
 const CATEGORIES = [
   // Electronics & Gadgets
@@ -121,29 +124,75 @@ const Post = () => {
     setFormData(prev => ({ ...prev, category: value }));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const existingImages = formData.images.filter(img => img.isExisting);
-      const newImages = [...formData.images.filter(img => !img.isExisting)];
-      
-      for (let i = 0; i < files.length; i++) {
-        if (existingImages.length + newImages.length < MAX_PHOTOS) {
-          newImages.push({
-            file: files[i],
-            preview: URL.createObjectURL(files[i])
-          });
-        } else {
-          toast.error(`Maximum photos reached. You can only upload up to ${MAX_PHOTOS} photos`);
-          break;
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isNative = Capacitor.isNativePlatform();
+    
+    if (isNative) {
+      try {
+        // Use Capacitor Camera plugin for native platforms
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: true,
+          resultType: CameraResultType.DataUrl,
+          source: 'PHOTOLIBRARY'
+        });
+
+        if (image.dataUrl) {
+          const existingImages = formData.images.filter(img => img.isExisting);
+          const newImages = [...formData.images.filter(img => !img.isExisting)];
+          
+          if (existingImages.length + newImages.length < MAX_PHOTOS) {
+            newImages.push({
+              preview: image.dataUrl,
+              file: null
+            });
+            
+            setFormData(prev => ({ 
+              ...prev, 
+              images: [...existingImages, ...newImages]
+            }));
+          } else {
+            toast.error(`Maximum photos reached. You can only upload up to ${MAX_PHOTOS} photos`);
+          }
         }
+      } catch (error) {
+        console.error('Error selecting image:', error);
+        toast.error('Failed to select image');
       }
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        images: [...existingImages, ...newImages]
-      }));
-      e.target.value = '';
+    } else {
+      // Web platform handling
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const existingImages = formData.images.filter(img => img.isExisting);
+        const newImages = [...formData.images.filter(img => !img.isExisting)];
+        
+        for (let i = 0; i < files.length; i++) {
+          if (existingImages.length + newImages.length < MAX_PHOTOS) {
+            const file = files[i];
+            if (!file.type.startsWith('image/')) {
+              toast.error('Please select only image files');
+              continue;
+            }
+            
+            const blob = new Blob([file], { type: file.type });
+            const preview = URL.createObjectURL(blob);
+            
+            newImages.push({
+              file: file,
+              preview: preview
+            });
+          } else {
+            toast.error(`Maximum photos reached. You can only upload up to ${MAX_PHOTOS} photos`);
+            break;
+          }
+        }
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          images: [...existingImages, ...newImages]
+        }));
+        e.target.value = '';
+      }
     }
   };
 
@@ -154,45 +203,82 @@ const Post = () => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
+  const handleSubmit = async () => {
     try {
-      if (!formData.title || !formData.description || !formData.category) {
-        toast.error("Please fill in all required fields");
-        setIsSubmitting(false);
+      // Validate required fields
+      if (!formData.title.trim() || !formData.description.trim() || !formData.category) {
+        toast.show({
+          title: 'Error',
+          description: 'Please fill in all required fields',
+          status: 'error',
+          duration: 3000,
+        });
         return;
       }
 
-      const postFormData = new FormData();
-      postFormData.append('title', formData.title);
-      postFormData.append('description', formData.description);
-      postFormData.append('category', formData.category);
-      
+      // Create FormData
+      const postData = new FormData();
+      postData.append('title', formData.title.trim());
+      postData.append('description', formData.description.trim());
+      postData.append('category', formData.category);
       if (formData.location) {
-        postFormData.append('location', formData.location);
+        postData.append('location', formData.location.trim());
       }
-      
-      // Add existing images that should be kept
-      const existingImages = formData.images.filter(img => img.isExisting);
-      if (existingImages.length > 0) {
-        postFormData.append('existingImages', JSON.stringify(existingImages.map(img => img.url)));
-      }
-      
-      // Add new images
-      const newImages = formData.images.filter(img => !img.isExisting);
-      if (newImages.length > 0) {
-        newImages.forEach(image => {
-          postFormData.append('images', image.file);
+
+      // Handle images
+      const isNative = Capacitor.isNativePlatform();
+      if (isNative) {
+        // For native platforms, convert images to base64
+        const base64Images = [];
+        for (const image of formData.images) {
+          if (image.preview) {
+            try {
+              // For native platforms, the preview URL is already a base64 string
+              const base64Data = image.preview.split(',')[1];
+              if (base64Data) {
+                base64Images.push(base64Data);
+              }
+            } catch (error) {
+              console.error('Error processing image:', error);
+            }
+          }
+        }
+        console.log('Converted images to base64:', base64Images.length);
+        postData.append('images', JSON.stringify(base64Images));
+      } else {
+        // For web, append files directly
+        formData.images.forEach((image, index) => {
+          if (image.file) {
+            const filename = `image-${Date.now()}-${index}.jpg`;
+            postData.append('images', {
+              uri: URL.createObjectURL(image.file),
+              type: 'image/jpeg',
+              name: filename,
+            } as any);
+          }
         });
       }
-      
+
+      // Log the final FormData contents
+      console.log('Submitting post with data:', {
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        location: formData.location,
+        imagesCount: formData.images.length,
+        platform: isNative ? 'native' : 'web',
+        hasImages: formData.images.length > 0,
+        imagePreviews: formData.images.map(img => ({
+          hasPreview: !!img.preview,
+          previewLength: img.preview?.length || 0
+        }))
+      });
+
       let response;
       if (postId) {
-        response = await postsAPI.updatePost(postId, postFormData);
+        response = await postsAPI.updatePost(postId, postData);
       } else {
-        response = await postsAPI.createPost(postFormData);
+        response = await postsAPI.createPost(postData);
       }
 
       if (response.success) {
@@ -201,11 +287,30 @@ const Post = () => {
       } else {
         throw new Error(response.message || 'Failed to save post');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving post:', error);
-      toast.error("Failed to save post. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        platform: Capacitor.getPlatform(),
+        formData: {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          imagesCount: formData.images.length,
+          images: formData.images.map(img => ({
+            hasPreview: !!img.preview,
+            hasFile: !!img.file,
+            hasUrl: !!img.url,
+            previewLength: img.preview?.length || 0
+          }))
+        }
+      });
+      
+      // Show more specific error message
+      const errorMessage = error.response?.data?.message || error.message || "Failed to save post. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
