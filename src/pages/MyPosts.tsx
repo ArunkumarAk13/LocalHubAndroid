@@ -231,18 +231,15 @@ const MyPosts: React.FC = () => {
         return;
       }
 
-      console.log("User submitted rating:", rating);
-      
-      setIsRatingDialogOpen(false);
-      
       // Show loading indicator
-      toast.loading("Processing your purchase...");
+      const loadingToast = toast.loading("Processing your purchase and rating...");
       
       // Mark the post as purchased with the selected seller and rating
       const response = await postsAPI.markAsPurchased(
         selectedPostId, 
         selectedSeller.id,
-        rating // Pass the selected rating
+        rating,
+        ratingComment // Add the comment to the API call
       );
       
       if (response.success) {
@@ -251,16 +248,23 @@ const MyPosts: React.FC = () => {
           post.id === selectedPostId ? { ...post, purchased: true } : post
         ));
         
-        toast.dismiss(); // Dismiss loading toast
-        toast.success("Post marked as purchased and seller rated");
+        // Dismiss loading toast and show success
+        toast.dismiss(loadingToast);
+        toast.success("Post marked as purchased and seller rated successfully!");
+        
+        // Reset all states
+        setIsRatingDialogOpen(false);
+        setSelectedPostId(null);
+        setSelectedSeller(null);
+        setSelectedRating(0);
+        setRatingComment('');
       } else {
-        toast.dismiss(); // Dismiss loading toast
+        toast.dismiss(loadingToast);
         toast.error(response.message || "Failed to mark post as purchased");
       }
     } catch (error: any) {
       console.error("Error processing purchase:", error);
-      toast.dismiss(); // Dismiss loading toast
-      toast.error(error.message || "An error occurred");
+      toast.error(error.message || "An error occurred while processing your request");
     }
   };
 
@@ -557,7 +561,7 @@ const MyPosts: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-8 flex flex-col items-center gap-6">
+          <div className="py-6 flex flex-col items-center gap-6">
             {selectedSeller && (
               <div className="flex flex-col items-center">
                 <Avatar className="h-16 w-16 mb-2">
@@ -570,7 +574,7 @@ const MyPosts: React.FC = () => {
               </div>
             )}
             
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2 w-full">
               <div className="text-center mb-2">
                 <p className="text-muted-foreground mb-4">Tap to select your rating</p>
                 {renderRatingStars(selectedRating, setSelectedRating)}
@@ -584,6 +588,18 @@ const MyPosts: React.FC = () => {
                 {selectedRating === 4 && "Very Good"}
                 {selectedRating === 5 && "Excellent"}
               </p>
+
+              {/* Add comment field */}
+              <div className="w-full mt-4">
+                <Label htmlFor="rating-comment">Add a comment (optional)</Label>
+                <Textarea
+                  id="rating-comment"
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  placeholder="Share your experience with this seller..."
+                  className="mt-2"
+                />
+              </div>
             </div>
           </div>
           

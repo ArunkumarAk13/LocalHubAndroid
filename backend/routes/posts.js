@@ -2,7 +2,6 @@ const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
-const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -192,11 +191,11 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create a new post
-router.post('/', auth, async (req, res, next) => {
+router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
-    const { title, description, category, location, images } = req.body;
+    const { title, description, category, location } = req.body;
     
     if (!title || !description || !category) {
       return res.status(400).json({
@@ -231,29 +230,7 @@ router.post('/', auth, async (req, res, next) => {
     
     // Handle image uploads
     const imageUrls = [];
-    
-    // Check if we have base64 images (from Android)
-    if (images && Array.isArray(images)) {
-      console.log('Processing base64 images:', images.length);
-      for (const base64Image of images) {
-        try {
-          // Upload base64 image to Cloudinary
-          const result = await cloudinary.uploader.upload(`data:image/jpeg;base64,${base64Image}`, {
-            folder: 'localhub/post-images',
-            transformation: [{ width: 1200, height: 1200, crop: 'limit' }]
-          });
-          
-          console.log('Uploaded base64 image to Cloudinary:', result.secure_url);
-          await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, result.secure_url]);
-          imageUrls.push(result.secure_url);
-        } catch (error) {
-          console.error('Error uploading base64 image:', error);
-        }
-      }
-    }
-    // Check if we have files (from web)
-    else if (req.files && req.files.length > 0) {
-      console.log('Processing file uploads:', req.files.length);
+    if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         // Cloudinary provides the URL in the path property
         const imageUrl = file.path;
@@ -261,10 +238,8 @@ router.post('/', auth, async (req, res, next) => {
         await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
         imageUrls.push(imageUrl);
       }
-    }
-    
-    // Add a default image if no images were uploaded
-    if (imageUrls.length === 0) {
+    } else {
+      // Add a default image if no images were uploaded
       const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
       await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
       imageUrls.push(defaultImage);
@@ -345,92 +320,76 @@ router.delete('/:id', auth, async (req, res, next) => {
   }
 });
 
-// Mark post as purchased and submit rating
-router.post('/:id/purchase', auth, async (req, res, next) => {
-  const client = await db.getClient();
-  
+// Mark post as purchased
+router.patch('/:id/purchased', auth, async (req, res, next) => {
   try {
-    await client.query('BEGIN');
-    const { id } = req.params;
-    const { rating, comment } = req.body;
+    const { sellerId, rating, comment } = req.body;
     
-    // Check if post exists and is not already purchased
-    const postCheck = await client.query(
-      'SELECT user_id FROM posts WHERE id = $1 AND purchased = false',
-      [id]
+    // Check if post exists and belongs to user
+    const postResult = await db.query(
+      'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
     );
     
-    if (postCheck.rows.length === 0) {
-      return res.status(404).json({
+    if (postResult.rows.length === 0) {
+      return res.status(404).json({ 
         success: false,
-        message: 'Post not found or already purchased'
+        message: 'Post not found or you do not have permission to modify it' 
       });
     }
-    
-    const sellerId = postCheck.rows[0].user_id;
-    
-    // Check if user is not rating their own post
-    if (sellerId === req.user.id) {
-      return res.status(400).json({
-        success: false,
-        message: 'You cannot purchase and rate your own post'
-      });
-    }
-    
-    // Check if user has already rated this post
-    const existingRating = await client.query(
-      'SELECT id FROM ratings WHERE post_id = $1 AND user_id = $2',
-      [id, req.user.id]
-    );
-    
-    if (existingRating.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already rated this post'
-      });
-    }
-    
-    // Mark post as purchased
-    await client.query(
-      'UPDATE posts SET purchased = true WHERE id = $1',
-      [id]
-    );
-    
-    // Create rating
-    const ratingResult = await client.query(
-      'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4) RETURNING id',
-      [id, req.user.id, rating, comment]
-    );
-    
-    // Update seller's average rating
-    await client.query(`
-      UPDATE users 
-      SET rating = (
-        SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
-        FROM ratings r
-        JOIN posts p ON r.post_id = p.id
-        WHERE p.user_id = $1
-      )
-      WHERE id = $1
-    `, [sellerId]);
-    
-    await client.query('COMMIT');
-    
-    res.json({
-      success: true,
-      message: 'Post marked as purchased and rated successfully',
-      rating: {
-        id: ratingResult.rows[0].id,
-        rating,
-        comment,
-        created_at: new Date()
+
+    // Start a transaction
+    await db.query('BEGIN');
+
+    try {
+      // Toggle the purchased status
+      const newStatus = !postResult.rows[0].purchased;
+      
+      // Update post
+      await db.query(
+        'UPDATE posts SET purchased = $1 WHERE id = $2',
+        [newStatus, req.params.id]
+      );
+
+      // If rating is provided, update user rating
+      if (rating && sellerId) {
+        // Add rating to ratings table
+        await db.query(
+          'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
+          [req.params.id, sellerId, rating, comment]
+        );
+
+        // Update user's average rating
+        await db.query(`
+          UPDATE users 
+          SET rating = (
+            SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
+            FROM ratings r
+            JOIN posts p ON r.post_id = p.id
+            WHERE p.user_id = $1
+          )
+          WHERE id = $1
+        `, [sellerId]);
       }
-    });
+      
+      await db.query('COMMIT');
+      
+      res.json({ 
+        success: true,
+        message: newStatus ? 'Post marked as purchased' : 'Post marked as available',
+        purchased: newStatus
+      });
+      
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
   } catch (error) {
-    await client.query('ROLLBACK');
-    next(error);
-  } finally {
-    client.release();
+    console.error('Error marking post as purchased:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to update post status' 
+    });
   }
 });
 

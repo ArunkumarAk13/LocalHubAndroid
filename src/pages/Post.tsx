@@ -16,14 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { X, Images, FilePlus, Search, Loader2 } from 'lucide-react';
 import { postsAPI } from '@/api';
-
-// Platform detection
-const isNative = () => {
-  // Check if we're in a native environment by looking for Capacitor in window
-  return typeof window !== 'undefined' && 
-         window.Capacitor !== undefined && 
-         window.Capacitor.isNativePlatform?.() === true;
-};
+import { Capacitor } from '@capacitor/core';
 
 const CATEGORIES = [
   // Electronics & Gadgets
@@ -74,7 +67,6 @@ const Post = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
-  const [post, setPost] = useState<any>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -89,14 +81,13 @@ const Post = () => {
       postsAPI.getPostById(postId)
         .then(response => {
           if (response.success) {
-            const postData = response.post;
-            setPost(postData);
+            const post = response.post;
             setFormData({
-              title: postData.title,
-              description: postData.description,
-              category: postData.category,
-              location: postData.location || '',
-              images: postData.images.map((url: string) => ({
+              title: post.title,
+              description: post.description,
+              category: post.category,
+              location: post.location || '',
+              images: post.images.map((url: string) => ({
                 preview: url,
                 url: url,
                 isExisting: true
@@ -131,7 +122,7 @@ const Post = () => {
     setFormData(prev => ({ ...prev, category: value }));
   };
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const existingImages = formData.images.filter(img => img.isExisting);
@@ -140,11 +131,13 @@ const Post = () => {
       for (let i = 0; i < files.length; i++) {
         if (existingImages.length + newImages.length < MAX_PHOTOS) {
           const file = files[i];
+          // Ensure the file is a valid image
           if (!file.type.startsWith('image/')) {
             toast.error('Please select only image files');
             continue;
           }
           
+          // Create a blob URL for preview
           const blob = new Blob([file], { type: file.type });
           const preview = URL.createObjectURL(blob);
           
@@ -173,54 +166,87 @@ const Post = () => {
     }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
     try {
       // Validate required fields
-      if (!formData.title.trim() || !formData.description.trim() || !formData.category) {
-        toast.error('Please fill in all required fields');
+      if (!formData.title?.trim() || !formData.description?.trim() || !formData.category?.trim()) {
+        toast.error("Please fill in all required fields");
+        setIsSubmitting(false);
         return;
       }
 
-      setIsSubmitting(true);
-
-      // Create FormData
-      const postData = new FormData();
-      postData.append('title', formData.title.trim());
-      postData.append('description', formData.description.trim());
-      postData.append('category', formData.category);
-      if (formData.location) {
-        postData.append('location', formData.location.trim());
-      }
-
-      // Handle images
-      formData.images
-        .filter(image => image.file && !image.isExisting)
-        .forEach((image, index) => {
-          if (image.file) {
-            postData.append('images', image.file);
-          }
-        });
-
-      // Log the final FormData contents
-      console.log('Submitting post with data:', {
+      // Create FormData object
+      const postFormData = new FormData();
+      
+      // Log the form data for debugging
+      console.log('Form data before submission:', {
         title: formData.title,
         description: formData.description,
         category: formData.category,
         location: formData.location,
         imagesCount: formData.images.length,
-        hasImages: formData.images.length > 0,
-        imagePreviews: formData.images.map(img => ({
-          hasPreview: !!img.preview,
-          isExisting: !!img.isExisting,
-          previewLength: img.preview?.length || 0
-        }))
+        platform: Capacitor.getPlatform()
       });
 
+      // Append text fields
+      postFormData.append('title', formData.title.trim());
+      postFormData.append('description', formData.description.trim());
+      postFormData.append('category', formData.category.trim());
+      
+      if (formData.location?.trim()) {
+        postFormData.append('location', formData.location.trim());
+      }
+      
+      // Add existing images that should be kept
+      const existingImages = formData.images.filter(img => img.isExisting && img.url);
+      if (existingImages.length > 0) {
+        const existingImageUrls = existingImages.map(img => img.url);
+        postFormData.append('existingImages', JSON.stringify(existingImageUrls));
+      }
+      
+      // Add new images
+      const newImages = formData.images.filter(img => !img.isExisting && img.file);
+      if (newImages.length > 0) {
+        newImages.forEach((image, index) => {
+          const fileExtension = image.file.name.split('.').pop() || 'jpg';
+          const fileName = `image_${index}_${Date.now()}.${fileExtension}`;
+          const file = new File([image.file], fileName, { 
+            type: image.file.type || 'image/jpeg'
+          });
+          postFormData.append('images', file);
+        });
+      }
+
+      // Log the FormData contents for debugging
+      console.log('FormData contents:');
+      for (let pair of postFormData.entries()) {
+        console.log('FormData entry:', pair[0], pair[1]);
+      }
+
+      // Validate FormData contents
+      const title = postFormData.get('title')?.toString();
+      const description = postFormData.get('description')?.toString();
+      const category = postFormData.get('category')?.toString();
+
+      console.log('FormData validation:', {
+        title,
+        description,
+        category,
+        hasImages: postFormData.getAll('images').length > 0
+      });
+
+      if (!title || !description || !category) {
+        throw new Error('Required fields are missing in FormData');
+      }
+      
       let response;
       if (postId) {
-        response = await postsAPI.updatePost(postId, postData);
+        response = await postsAPI.updatePost(postId, postFormData);
       } else {
-        response = await postsAPI.createPost(postData);
+        response = await postsAPI.createPost(postFormData);
       }
 
       if (response.success) {
@@ -235,48 +261,14 @@ const Post = () => {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
-        formData: {
-          title: formData.title,
-          description: formData.description,
-          category: formData.category,
-          imagesCount: formData.images.length,
-          images: formData.images.map(img => ({
-            hasPreview: !!img.preview,
-            hasFile: !!img.file,
-            isExisting: !!img.isExisting,
-            previewLength: img.preview?.length || 0
-          }))
-        }
+        platform: Capacitor.getPlatform()
       });
       
+      // Show more specific error message
       const errorMessage = error.response?.data?.message || error.message || "Failed to save post. Please try again.";
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleMarkAsPurchased = async (rating: number, comment?: string) => {
-    if (!postId) {
-      toast.error('Post ID is missing');
-      return;
-    }
-
-    try {
-      const response = await postsAPI.markPostAsPurchased(postId, rating, comment);
-      if (response.success) {
-        toast.success('Post marked as purchased and rated successfully');
-        // Refresh the post data
-        const updatedPost = await postsAPI.getPostById(postId);
-        if (updatedPost.success) {
-          setPost(updatedPost.post);
-        }
-      } else {
-        throw new Error(response.message || 'Failed to mark post as purchased');
-      }
-    } catch (error: any) {
-      console.error('Error marking post as purchased:', error);
-      toast.error(error.response?.data?.message || 'Failed to mark post as purchased');
     }
   };
 
@@ -474,27 +466,6 @@ const Post = () => {
             </Button>
           </div>
         </form>
-
-        {post && !post.purchased && post.posted_by?.id !== user?.id && (
-          <Button
-            onClick={() => {
-              // Show rating dialog
-              const rating = prompt('Rate the seller (1-5):');
-              if (rating) {
-                const numRating = parseInt(rating);
-                if (numRating >= 1 && numRating <= 5) {
-                  const comment = prompt('Add a comment (optional):');
-                  handleMarkAsPurchased(numRating, comment || undefined);
-                } else {
-                  toast.error('Please enter a rating between 1 and 5');
-                }
-              }
-            }}
-            className="w-full"
-          >
-            Mark as Purchased
-          </Button>
-        )}
       </div>
 
       <Navigation />
