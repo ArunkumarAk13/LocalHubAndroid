@@ -516,7 +516,7 @@ export const chatsAPI = {
         };
       }
       
-      // Otherwise return the response data as is
+    
       return response.data;
     } catch (error: any) {
       console.error("Error fetching chats:", error);
