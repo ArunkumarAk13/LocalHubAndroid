@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from './config';
 import { Capacitor } from '@capacitor/core';
+import { CapacitorHttp } from '@capacitor/core';
 
 // Create an axios instance with the correct baseURL
 const baseURL = API_BASE_URL;
@@ -169,89 +170,69 @@ export const postsAPI = {
     const response = await api.get(`/api/posts/user/${userId}`);
     return response.data;
   },
-  createPost: async (postData: FormData) => {
+  createPost: async (formData: FormData) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
+      console.log('Form data before submission:', formData);
+      console.log('FormData contents:');
+      
+      // Log FormData contents for debugging
+      for (const [key, value] of formData.entries()) {
+        console.log('FormData entry:', key, value);
       }
 
-      // Extract text fields
-      const title = postData.get('title')?.toString()?.trim();
-      const description = postData.get('description')?.toString()?.trim();
-      const category = postData.get('category')?.toString()?.trim();
-      const location = postData.get('location')?.toString()?.trim();
-
-      // Validate required fields
-      if (!title || !description || !category) {
-        console.error('Validation failed:', { title, description, category });
-        throw new Error('Title, description, and category are required');
+      // Convert FormData to array of objects for Capacitor
+      const formDataArray = [];
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          // For files, read as ArrayBuffer and convert to base64
+          const arrayBuffer = await value.arrayBuffer();
+          const base64 = btoa(
+            new Uint8Array(arrayBuffer)
+              .reduce((data, byte) => data + String.fromCharCode(byte), '')
+          );
+          formDataArray.push({
+            key,
+            value: base64,
+            type: 'file',
+            filename: value.name,
+            contentType: value.type
+          });
+        } else {
+          formDataArray.push({
+            key,
+            value: value.toString(),
+            type: 'text'
+          });
+        }
       }
 
-      // Create JSON data for text fields
-      const jsonData = {
-        title,
-        description,
-        category,
-        ...(location && { location })
+      const requestDetails = {
+        url: `${API_BASE_URL}/posts`,
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        data: formDataArray,
+        dataType: 'json'
       };
 
-      // Create FormData for files only
-      const fileFormData = new FormData();
+      console.log('Request details:', requestDetails);
       
-      // Add existing images
-      const existingImages = postData.get('existingImages')?.toString();
-      if (existingImages) {
-        fileFormData.append('existingImages', existingImages);
+      const response = await CapacitorHttp.post(requestDetails);
+      console.log('API Response:', response);
+      
+      if (response.status === 201) {
+        return {
+          success: true,
+          post: response.data
+        };
+      } else {
+        throw new Error(response.data.message || 'Failed to create post');
       }
-
-      // Add new images
-      const images = postData.getAll('images');
-      images.forEach((image) => {
-        if (image instanceof File) {
-          fileFormData.append('images', image);
-        }
-      });
-
-      // Log request details
-      console.log('Request details:', {
-        jsonData,
-        files: Array.from(fileFormData.entries()).map(([key, value]) => ({
-          key,
-          value: value instanceof File ? `File: ${value.name}` : value
-        })),
-        platform: Capacitor.getPlatform()
-      });
-
-      // Make the request
-      const response = await api.post('/api/posts', jsonData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        data: fileFormData,
-        transformRequest: [(data: any) => data],
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-        timeout: 30000
-      });
-      
-      console.log('Post creation response:', response.data);
-      return response.data;
     } catch (error: any) {
-      console.error("Error creating post:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.config?.headers,
-        data: error.config?.data
-      });
-      
-      if (error.response?.data) {
-        return error.response.data;
-      }
-      throw error;
+      console.error('API Error:', error);
+      throw new Error(error.message || 'Error creating post');
     }
   },
   updatePost: async (postId: string, postData: FormData) => {

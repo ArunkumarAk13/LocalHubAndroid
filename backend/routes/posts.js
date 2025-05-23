@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
+const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -191,7 +192,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create a new post
-router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
+router.post('/', auth, async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
@@ -230,15 +231,28 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     
     // Handle image uploads
     const imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        // Cloudinary provides the URL in the path property
-        const imageUrl = file.path;
-        console.log('Saving image URL:', imageUrl);
-        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
-        imageUrls.push(imageUrl);
+    if (req.body.images && Array.isArray(req.body.images)) {
+      for (const image of req.body.images) {
+        if (image.type === 'file') {
+          // Upload base64 image to Cloudinary
+          const result = await cloudinary.uploader.upload(
+            `data:${image.contentType};base64,${image.value}`,
+            {
+              folder: 'localhub/post-images',
+              resource_type: 'auto'
+            }
+          );
+          
+          // Save image URL to database
+          await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', 
+            [postId, result.secure_url]
+          );
+          imageUrls.push(result.secure_url);
+        }
       }
-    } else {
+    }
+    
+    if (imageUrls.length === 0) {
       // Add a default image if no images were uploaded
       const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
       await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
