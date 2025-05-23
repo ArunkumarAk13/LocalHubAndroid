@@ -171,12 +171,66 @@ export const postsAPI = {
     return response.data;
   },
   createPost: async (postData: FormData) => {
-    const response = await api.post('/api/posts', postData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Log FormData contents for debugging
+        console.log('FormData contents:');
+        for (const [key, value] of postData.entries()) {
+          console.log(`FormData entry: ${key}`, value);
+        }
+
+        // Use fetch for proper multipart/form-data handling
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${baseURL}/api/posts`, {
+          method: 'POST',
+          body: postData,
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type - let the browser set it with boundary
+          },
+          credentials: 'include'
+        });
+
+        console.log('Server response status:', response.status);
+        const data = await response.json();
+        console.log('Server response data:', data);
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to create post');
+        }
+
+        return data;
+      } else {
+        const response = await api.post('/api/posts', postData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          withCredentials: true
+        });
+        return response.data;
+      }
+    } catch (error: any) {
+      console.error('Error creating post:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        headers: error.response?.headers,
+        url: error.config?.url
+      });
+
+      // If it's a fetch error, try to parse the response
+      if (error.response) {
+        try {
+          const errorData = await error.response.json();
+          console.error('Parsed error data:', errorData);
+        } catch (e) {
+          console.error('Raw error data:', error.response);
+        }
+      }
+
+      throw error;
+    }
   },
   updatePost: async (postId: string, postData: FormData) => {
     const response = await api.put(`/api/posts/${postId}`, postData, {
