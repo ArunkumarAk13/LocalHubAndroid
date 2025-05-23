@@ -192,11 +192,11 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create a new post
-router.post('/', auth, async (req, res, next) => {
+router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
-    const { title, description, category, location, images } = req.body;
+    const { title, description, category, location } = req.body;
     
     if (!title || !description || !category) {
       return res.status(400).json({
@@ -231,30 +231,15 @@ router.post('/', auth, async (req, res, next) => {
     
     // Handle image uploads
     const imageUrls = [];
-    if (images && Array.isArray(images)) {
-      for (const image of images) {
-        try {
-          // Upload base64 image to Cloudinary
-          const result = await cloudinary.uploader.upload(
-            `data:${image.contentType};base64,${image.data}`,
-            {
-              folder: 'localhub/post-images',
-              resource_type: 'auto'
-            }
-          );
-          
-          // Save image URL to database
-          await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', 
-            [postId, result.secure_url]
-          );
-          imageUrls.push(result.secure_url);
-        } catch (error) {
-          console.error('Error uploading image to Cloudinary:', error);
-        }
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        // Cloudinary provides the URL in the path property
+        const imageUrl = file.path;
+        console.log('Saving image URL:', imageUrl);
+        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
+        imageUrls.push(imageUrl);
       }
-    }
-    
-    if (imageUrls.length === 0) {
+    } else {
       // Add a default image if no images were uploaded
       const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
       await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
@@ -302,11 +287,7 @@ router.post('/', auth, async (req, res, next) => {
     });
   } catch (error) {
     await db.query('ROLLBACK');
-    console.error('Error creating post:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to create post'
-    });
+    next(error);
   }
 });
 

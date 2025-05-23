@@ -170,72 +170,13 @@ export const postsAPI = {
     const response = await api.get(`/api/posts/user/${userId}`);
     return response.data;
   },
-  createPost: async (formData: FormData) => {
-    try {
-      console.log('Form data before submission:', formData);
-      console.log('FormData contents:');
-      
-      // Log FormData contents for debugging
-      for (const [key, value] of formData.entries()) {
-        console.log('FormData entry:', key, value);
-      }
-
-      // Convert FormData to a regular object
-      const data: any = {};
-      const images: any[] = [];
-
-      for (const [key, value] of formData.entries()) {
-        if (value instanceof File) {
-          // For files, read as ArrayBuffer and convert to base64
-          const arrayBuffer = await value.arrayBuffer();
-          const base64 = btoa(
-            new Uint8Array(arrayBuffer)
-              .reduce((data, byte) => data + String.fromCharCode(byte), '')
-          );
-          images.push({
-            data: base64,
-            filename: value.name,
-            contentType: value.type
-          });
-        } else {
-          data[key] = value.toString();
-        }
-      }
-
-      // Add images array to the data object
-      if (images.length > 0) {
-        data.images = images;
-      }
-
-      const requestDetails = {
-        url: `${API_BASE_URL}/posts`,
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        data: data,
-        dataType: 'json'
-      };
-
-      console.log('Request details:', requestDetails);
-      
-      const response = await CapacitorHttp.post(requestDetails);
-      console.log('API Response:', response);
-      
-      if (response.status === 201) {
-        return {
-          success: true,
-          post: response.data
-        };
-      } else {
-        throw new Error(response.data.message || 'Failed to create post');
-      }
-    } catch (error: any) {
-      console.error('API Error:', error);
-      throw new Error(error.message || 'Error creating post');
-    }
+  createPost: async (postData: FormData) => {
+    const response = await api.post('/api/posts', postData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   },
   updatePost: async (postId: string, postData: FormData) => {
     const response = await api.put(`/api/posts/${postId}`, postData, {
