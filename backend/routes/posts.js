@@ -196,7 +196,7 @@ router.post('/', auth, async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
-    const { title, description, category, location } = req.body;
+    const { title, description, category, location, images } = req.body;
     
     if (!title || !description || !category) {
       return res.status(400).json({
@@ -231,12 +231,12 @@ router.post('/', auth, async (req, res, next) => {
     
     // Handle image uploads
     const imageUrls = [];
-    if (req.body.images && Array.isArray(req.body.images)) {
-      for (const image of req.body.images) {
-        if (image.type === 'file') {
+    if (images && Array.isArray(images)) {
+      for (const image of images) {
+        try {
           // Upload base64 image to Cloudinary
           const result = await cloudinary.uploader.upload(
-            `data:${image.contentType};base64,${image.value}`,
+            `data:${image.contentType};base64,${image.data}`,
             {
               folder: 'localhub/post-images',
               resource_type: 'auto'
@@ -248,6 +248,8 @@ router.post('/', auth, async (req, res, next) => {
             [postId, result.secure_url]
           );
           imageUrls.push(result.secure_url);
+        } catch (error) {
+          console.error('Error uploading image to Cloudinary:', error);
         }
       }
     }
@@ -300,7 +302,11 @@ router.post('/', auth, async (req, res, next) => {
     });
   } catch (error) {
     await db.query('ROLLBACK');
-    next(error);
+    console.error('Error creating post:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create post'
+    });
   }
 });
 

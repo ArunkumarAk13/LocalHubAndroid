@@ -180,8 +180,10 @@ export const postsAPI = {
         console.log('FormData entry:', key, value);
       }
 
-      // Convert FormData to array of objects for Capacitor
-      const formDataArray = [];
+      // Convert FormData to a regular object
+      const data: any = {};
+      const images: any[] = [];
+
       for (const [key, value] of formData.entries()) {
         if (value instanceof File) {
           // For files, read as ArrayBuffer and convert to base64
@@ -190,20 +192,19 @@ export const postsAPI = {
             new Uint8Array(arrayBuffer)
               .reduce((data, byte) => data + String.fromCharCode(byte), '')
           );
-          formDataArray.push({
-            key,
-            value: base64,
-            type: 'file',
+          images.push({
+            data: base64,
             filename: value.name,
             contentType: value.type
           });
         } else {
-          formDataArray.push({
-            key,
-            value: value.toString(),
-            type: 'text'
-          });
+          data[key] = value.toString();
         }
+      }
+
+      // Add images array to the data object
+      if (images.length > 0) {
+        data.images = images;
       }
 
       const requestDetails = {
@@ -211,9 +212,10 @@ export const postsAPI = {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        data: formDataArray,
+        data: data,
         dataType: 'json'
       };
 
