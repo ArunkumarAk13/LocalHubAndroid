@@ -24,6 +24,7 @@ const PostDetail = () => {
   const [editedTitle, setEditedTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     const loadPost = async () => {
@@ -62,21 +63,31 @@ const PostDetail = () => {
 
   const handleEdit = async () => {
     try {
-      const response = await postsAPI.updatePost(postId!, {
-        title: editedTitle,
-        description: editedDescription
-      });
+      const formData = new FormData();
+      formData.append('title', editedTitle);
+      formData.append('description', editedDescription);
+      formData.append('category', post.category);
+      if (post.location) {
+        formData.append('location', post.location);
+      }
+
+      // Handle existing images
+      if (post.images && post.images.length > 0) {
+        formData.append('existingImages', JSON.stringify(post.images));
+      }
+
+      const response = await postsAPI.updatePost(postId!, formData);
       
       if (response.success) {
-        setPost({ ...post, title: editedTitle, description: editedDescription });
+        setPost(response.post);
         setIsEditing(false);
-        toast("Post updated successfully");
+        toast.success("Post updated successfully");
       } else {
-        toast(response.message || "Failed to update post");
+        toast.error(response.message || "Failed to update post");
       }
     } catch (error: any) {
       console.error("Error updating post:", error);
-      toast(error.response?.data?.message || "Error updating post");
+      toast.error(error.response?.data?.message || "Error updating post");
     }
   };
 
@@ -102,6 +113,14 @@ const PostDetail = () => {
     if (url.startsWith('http')) return url;
     if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
     return `${API_BASE_URL}/uploads/post-images/${url}`;
+  };
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % post.images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + post.images.length) % post.images.length);
   };
 
   if (loading) {
@@ -134,11 +153,51 @@ const PostDetail = () => {
         <div className="mb-6">
           <div className="relative rounded-lg overflow-hidden mb-4">
             <div className="relative aspect-[4/3] bg-gray-50">
-              <img 
-                src={getImageUrl(post.images[0])} 
-                alt={`${post.title} - Image 1`} 
-                className="w-full h-full object-contain" 
-              />
+              {post.images && post.images.length > 0 && (
+                <>
+                  <img 
+                    src={getImageUrl(post.images[currentImageIndex])} 
+                    alt={`${post.title} - Image ${currentImageIndex + 1}`} 
+                    className="w-full h-full object-contain" 
+                  />
+                  {post.images.length > 1 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          prevImage();
+                        }}
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nextImage();
+                        }}
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </Button>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                        {post.images.map((_, index) => (
+                          <div
+                            key={index}
+                            className={`w-2 h-2 rounded-full ${
+                              index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
             <Badge className="absolute top-4 right-4" variant="accent">
               {post.category}

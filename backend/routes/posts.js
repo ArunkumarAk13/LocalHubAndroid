@@ -450,6 +450,7 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
         existingImages = JSON.parse(req.body.existingImages);
       } catch (error) {
         console.error('Error parsing existingImages:', error);
+        existingImages = [];
       }
     }
     
@@ -511,7 +512,11 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
     });
   } catch (error) {
     await db.query('ROLLBACK');
-    next(error);
+    console.error('Error updating post:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update post'
+    });
   }
 });
 

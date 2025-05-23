@@ -233,12 +233,45 @@ export const postsAPI = {
     }
   },
   updatePost: async (postId: string, postData: FormData) => {
-    const response = await api.put(`/api/posts/${postId}`, postData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Use fetch for proper multipart/form-data handling
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${baseURL}/api/posts/${postId}`, {
+          method: 'PUT',
+          body: postData,
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type - let the browser set it with boundary
+          },
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to update post');
+        }
+        return data;
+      } else {
+        const response = await api.put(`/api/posts/${postId}`, postData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          withCredentials: true
+        });
+        return response.data;
+      }
+    } catch (error: any) {
+      console.error('Error updating post:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        headers: error.response?.headers,
+        url: error.config?.url
+      });
+      throw error;
+    }
   },
   deletePost: async (postId: string) => {
     const response = await api.delete(`/api/posts/${postId}`);
