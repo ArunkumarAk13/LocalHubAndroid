@@ -193,17 +193,10 @@ export const postsAPI = {
 
         console.log('Server response status:', response.status);
         const data = await response.json();
-        console.log('Server response data:', JSON.stringify(data, null, 2));
+        console.log('Server response data:', data);
 
         if (!response.ok) {
-          const errorMessage = data.message || data.error?.message || 'Failed to create post';
-          console.error('Server error details:', {
-            status: response.status,
-            message: errorMessage,
-            error: data.error,
-            data: data
-          });
-          throw new Error(errorMessage);
+          throw new Error(data.message || 'Failed to create post');
         }
 
         return data;
@@ -230,7 +223,7 @@ export const postsAPI = {
       if (error.response) {
         try {
           const errorData = await error.response.json();
-          console.error('Parsed error data:', JSON.stringify(errorData, null, 2));
+          console.error('Parsed error data:', errorData);
         } catch (e) {
           console.error('Raw error data:', error.response);
         }

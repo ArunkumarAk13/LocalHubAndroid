@@ -90,44 +90,11 @@ app.get('/api/debug/uploads', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error details:', {
-    message: err.message,
-    stack: err.stack,
-    name: err.name,
-    code: err.code
-  });
-
-  // Handle specific error types
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      success: false,
-      message: err.message
-    });
-  }
-
-  if (err.code === '23505') { // Unique violation
-    return res.status(409).json({
-      success: false,
-      message: 'A record with this information already exists'
-    });
-  }
-
-  if (err.code === '23503') { // Foreign key violation
-    return res.status(400).json({
-      success: false,
-      message: 'Referenced record does not exist'
-    });
-  }
-
-  // Default error response
+  console.error(err.stack);
   res.status(500).json({
     success: false,
     message: 'Server error',
-    error: process.env.NODE_ENV === 'development' ? {
-      message: err.message,
-      name: err.name,
-      code: err.code
-    } : undefined
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
