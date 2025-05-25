@@ -196,9 +196,16 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
+    console.log('Received post creation request:', {
+      body: req.body,
+      files: req.files ? req.files.map(f => ({ filename: f.filename, size: f.size })) : [],
+      user: req.user.id
+    });
+
     const { title, description, category, location } = req.body;
     
     if (!title || !description || !category) {
+      console.log('Missing required fields:', { title, description, category });
       return res.status(400).json({
         success: false,
         message: 'Title, description, and category are required'
@@ -222,6 +229,14 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     }
     
     // Insert post
+    console.log('Inserting post with data:', {
+      title,
+      description,
+      categoryId,
+      userId: req.user.id,
+      location
+    });
+
     const postResult = await db.query(
       'INSERT INTO posts (title, description, category_id, user_id, location) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [title, description, categoryId, req.user.id, location]
@@ -232,6 +247,7 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     // Handle image uploads
     const imageUrls = [];
     if (req.files && req.files.length > 0) {
+      console.log('Processing uploaded images:', req.files.length);
       for (const file of req.files) {
         // Cloudinary provides the URL in the path property
         const imageUrl = file.path;
@@ -241,6 +257,7 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
       }
     } else {
       // Add a default image if no images were uploaded
+      console.log('No images uploaded, using default image');
       const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
       await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
       imageUrls.push(defaultImage);
@@ -269,6 +286,8 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     
     await db.query('COMMIT');
     
+    console.log('Post created successfully:', { postId, imageUrls });
+    
     res.status(201).json({
       success: true,
       post: {
@@ -286,6 +305,7 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('Error creating post:', error);
     await db.query('ROLLBACK');
     next(error);
   }
