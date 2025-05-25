@@ -198,7 +198,12 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
   try {
     console.log('Received post creation request:', {
       body: req.body,
-      files: req.files ? req.files.map(f => ({ filename: f.filename, size: f.size })) : [],
+      files: req.files ? req.files.map(f => ({ 
+        filename: f.filename, 
+        size: f.size,
+        mimetype: f.mimetype,
+        path: f.path
+      })) : [],
       user: req.user.id
     });
 
@@ -219,11 +224,16 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     if (categoryResult.rows.length === 0) {
       // If category doesn't exist, create it
       console.log("Creating new category:", category);
-      const newCategoryResult = await db.query(
-        'INSERT INTO categories (name) VALUES ($1) RETURNING id',
-        [category]
-      );
-      categoryId = newCategoryResult.rows[0].id;
+      try {
+        const newCategoryResult = await db.query(
+          'INSERT INTO categories (name) VALUES ($1) RETURNING id',
+          [category]
+        );
+        categoryId = newCategoryResult.rows[0].id;
+      } catch (error) {
+        console.error('Error creating category:', error);
+        throw new Error('Failed to create category');
+      }
     } else {
       categoryId = categoryResult.rows[0].id;
     }
@@ -237,51 +247,71 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
       location
     });
 
-    const postResult = await db.query(
-      'INSERT INTO posts (title, description, category_id, user_id, location) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [title, description, categoryId, req.user.id, location]
-    );
-    
-    const postId = postResult.rows[0].id;
+    let postId;
+    try {
+      const postResult = await db.query(
+        'INSERT INTO posts (title, description, category_id, user_id, location) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [title, description, categoryId, req.user.id, location]
+      );
+      postId = postResult.rows[0].id;
+    } catch (error) {
+      console.error('Error inserting post:', error);
+      throw new Error('Failed to create post');
+    }
     
     // Handle image uploads
     const imageUrls = [];
     if (req.files && req.files.length > 0) {
       console.log('Processing uploaded images:', req.files.length);
       for (const file of req.files) {
-        // Cloudinary provides the URL in the path property
-        const imageUrl = file.path;
-        console.log('Saving image URL:', imageUrl);
-        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
-        imageUrls.push(imageUrl);
+        try {
+          // Cloudinary provides the URL in the path property
+          const imageUrl = file.path;
+          console.log('Saving image URL:', imageUrl);
+          await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, imageUrl]);
+          imageUrls.push(imageUrl);
+        } catch (error) {
+          console.error('Error saving image:', error);
+          throw new Error('Failed to save image');
+        }
       }
     } else {
       // Add a default image if no images were uploaded
       console.log('No images uploaded, using default image');
-      const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
-      await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
-      imageUrls.push(defaultImage);
+      try {
+        const defaultImage = 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
+        await db.query('INSERT INTO post_images (post_id, image_url) VALUES ($1, $2)', [postId, defaultImage]);
+        imageUrls.push(defaultImage);
+      } catch (error) {
+        console.error('Error saving default image:', error);
+        throw new Error('Failed to save default image');
+      }
     }
     
     // Check for subscribed users to notify
-    const subscribedUsersResult = await db.query(`
-      SELECT u.id
-      FROM users u
-      JOIN category_subscriptions cs ON u.id = cs.user_id
-      WHERE cs.category_id = $1 AND u.id != $2
-    `, [categoryId, req.user.id]);
-    
-    // Create notifications for subscribed users
-    for (const user of subscribedUsersResult.rows) {
-      await db.query(`
-        INSERT INTO notifications (user_id, title, description, post_id)
-        VALUES ($1, $2, $3, $4)
-      `, [
-        user.id,
-        `New post in ${category}`,
-        title,
-        postId
-      ]);
+    try {
+      const subscribedUsersResult = await db.query(`
+        SELECT u.id
+        FROM users u
+        JOIN category_subscriptions cs ON u.id = cs.user_id
+        WHERE cs.category_id = $1 AND u.id != $2
+      `, [categoryId, req.user.id]);
+      
+      // Create notifications for subscribed users
+      for (const user of subscribedUsersResult.rows) {
+        await db.query(`
+          INSERT INTO notifications (user_id, title, description, post_id)
+          VALUES ($1, $2, $3, $4)
+        `, [
+          user.id,
+          `New post in ${category}`,
+          title,
+          postId
+        ]);
+      }
+    } catch (error) {
+      console.error('Error creating notifications:', error);
+      // Don't throw here, as the post was created successfully
     }
     
     await db.query('COMMIT');
