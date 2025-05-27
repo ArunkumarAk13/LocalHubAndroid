@@ -142,6 +142,8 @@ const Register = () => {
     
     try {
       console.log('[Register] Starting OTP request process');
+      console.log('[Register] Platform:', Capacitor.getPlatform());
+      console.log('[Register] Is Android:', Capacitor.getPlatform() === 'android');
       console.log('[Register] Phone number:', values.phoneNumber);
       
       const response = await authAPI.requestOTP(values.phoneNumber);

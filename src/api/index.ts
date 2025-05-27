@@ -101,7 +101,11 @@ export const authAPI = {
   requestOTP: async (phoneNumber: string) => {
     try {
       console.log('[API] Requesting OTP for:', phoneNumber);
-      const response = await api.post('/api/auth/request-otp', { phone_number: phoneNumber });
+      // Format phone number to E.164 format if not already formatted
+      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      console.log('[API] Formatted phone number:', formattedNumber);
+      
+      const response = await api.post('/api/auth/send-otp', { phoneNumber: formattedNumber });
       console.log('[API] OTP request response:', response.data);
       return response.data;
     } catch (error: any) {

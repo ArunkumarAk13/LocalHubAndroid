@@ -239,24 +239,36 @@ router.post('/api/auth/send-otp', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
         
-        // Format phone number to E.164 format
+        if (!phoneNumber) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phone number is required'
+            });
+        }
+
+        console.log('[Backend] Received OTP request for:', phoneNumber);
+        
+        // Format phone number to E.164 format if not already formatted
         const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+        console.log('[Backend] Formatted phone number:', formattedNumber);
         
         // Send verification code
         const verification = await twilioClient.verify.v2
             .services(process.env.TWILIO_VERIFY_SERVICE_SID)
             .verifications.create({ to: formattedNumber, channel: 'sms' });
 
+        console.log('[Backend] Twilio verification response:', verification);
+
         res.json({ 
-            success: true, 
+            success: true,
             message: 'OTP sent successfully',
-            status: verification.status 
+            verification
         });
     } catch (error) {
-        console.error('Error sending OTP:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to send OTP' 
+        console.error('[Backend] Error sending OTP:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to send OTP'
         });
     }
 });
