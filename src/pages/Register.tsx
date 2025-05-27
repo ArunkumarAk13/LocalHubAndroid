@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Lock, User, ArrowRight, Eye, EyeOff, Phone, Loader2, ArrowLeft } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
+import { useToast } from "@/hooks/use-toast";
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { OTPInput } from "@/components/ui/otp-input";
 import { sendOTP, verifyOTP } from '../services/firebase'; // web version
-import { sendNativeOTP, verifyNativeOTP } from '../services/native-firebase'; // native version
+import { sendNativeOTP, verifyNativeOTP, setOtpSentCallback } from '../services/native-firebase';
 
 // Define the form schema with validation
 const formSchema = z.object({
@@ -55,6 +56,7 @@ enum RegistrationStep {
 }
 
 const Register = () => {
+  const { toast } = useToast();
   const { register, requestOTP, verifyOTP, registerWithOTP } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -106,6 +108,42 @@ const Register = () => {
       }
     };
   }, []);
+
+  // Set up OTP sent callback
+  useEffect(() => {
+    if (isAndroid) {
+      const handleOtpSent = (verificationId: string) => {
+        console.log('[Register] OTP sent callback received:', verificationId);
+        try {
+          // Use functional updates to ensure we have the latest state
+          setRegistrationStep(() => RegistrationStep.OTP_VERIFICATION);
+          startOtpCountdown();
+          setIsLoading(() => false);
+          toast({
+            title: "Success",
+            description: "OTP sent successfully",
+          });
+        } catch (error) {
+          console.error('[Register] Error handling OTP sent callback:', error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to process OTP. Please try again.",
+          });
+          setIsLoading(false);
+        }
+      };
+
+      console.log('[Register] Setting up OTP sent callback');
+      const cleanup = setOtpSentCallback(handleOtpSent);
+
+      // Cleanup callback on unmount
+      return () => {
+        console.log('[Register] Cleaning up OTP sent callback');
+        cleanup();
+      };
+    }
+  }, [isAndroid, toast]); // Add toast to dependencies
 
   // Function to validate phone number in real time
   const validatePhoneNumber = (value: string) => {
@@ -161,40 +199,74 @@ const Register = () => {
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log('[Register] Starting OTP request process');
+    console.log('[Register] Platform:', Capacitor.getPlatform());
+    console.log('[Register] Is Android:', isAndroid);
+    
     setFormValues(values);
     setIsLoading(true);
+    setOtpError(null);
     
     try {
       // For Android, try direct Firebase API first
       if (isAndroid) {
         try {
-          const otpResponse = await sendNativeOTP(values.phoneNumber);
-          
-          if (otpResponse.success) {
-            setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
-            startOtpCountdown();
-            setIsLoading(false);
-            return;
-          } else {
-            setPhoneError(otpResponse.message || "Failed to send verification code");
-          }
-        } catch (nativeError) {
-          console.error("Native auth failed:", nativeError);
-          setPhoneError("Failed to send verification code. Try again later.");
+          console.log('[Register] Attempting to send native OTP');
+          console.log('[Register] Phone number:', values.phoneNumber);
+          const result = await sendNativeOTP(values.phoneNumber);
+          console.log('[Register] Native OTP send result:', result);
+          // The callback will handle the navigation and toast
+          return;
+        } catch (nativeError: any) {
+          console.error("[Register] Native auth failed:", {
+            error: nativeError,
+            message: nativeError.message,
+            code: nativeError.code,
+            stack: nativeError.stack
+          });
+          setPhoneError(nativeError.message || "Failed to send verification code. Try again later.");
+          setIsLoading(false);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: nativeError.message || "Failed to send OTP. Please try again.",
+          });
+          return;
         }
       }
       
+      // Fallback to web version if native fails
+      console.log('[Register] Falling back to web OTP');
       const otpResponse = await requestOTP(values.phoneNumber);
       
       if (otpResponse.success) {
         setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
         startOtpCountdown();
+        toast({
+          title: "Success",
+          description: "OTP sent successfully",
+        });
       } else {
         setOtpError(otpResponse.message || "Failed to send OTP. Please try again.");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: otpResponse.message || "Failed to send OTP. Please try again.",
+        });
       }
     } catch (error: any) {
-      console.error('Error requesting OTP:', error);
+      console.error('[Register] Error requesting OTP:', {
+        error,
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       setOtpError(error.message || "Something went wrong. Please try again.");
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to send OTP. Please try again.",
+      });
     } finally {
       setIsLoading(false);
     }

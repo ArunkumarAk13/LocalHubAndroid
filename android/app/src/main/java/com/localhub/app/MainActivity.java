@@ -23,6 +23,9 @@ public class MainActivity extends BridgeActivity {
 
         // You can add more initialization here as needed
         // e.g., registerPlugin(MyCustomPlugin.class);
+
+        // Enable debug logging
+        DebugConfig.enableDebugLogging();
     }
 
     @Override
