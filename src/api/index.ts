@@ -105,7 +105,7 @@ export const authAPI = {
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number:', formattedNumber);
       
-      const response = await api.post('/api/auth/send-otp', { phone_number: formattedNumber });
+      const response = await api.post('/api/auth/send-otp', { phoneNumber: formattedNumber });
       console.log('[API] OTP request response:', response.data);
       return response.data;
     } catch (error: any) {
@@ -141,23 +141,42 @@ export const authAPI = {
   verifyOTP: async (phoneNumber: string, otp: string) => {
     try {
       console.log('[API] Verifying OTP for:', phoneNumber);
+      // Format phone number to E.164 format if not already formatted
+      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      console.log('[API] Formatted phone number for verification:', formattedNumber);
+      
       const response = await api.post('/api/auth/verify-otp', { 
-        phone_number: phoneNumber, 
-        otp_code: otp 
+        phoneNumber: formattedNumber, 
+        code: otp 
       });
       console.log('[API] OTP verification response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error("[API] OTP verification error:", error.response || error);
+      // Log detailed error information with proper stringification
+      const errorDetails = {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      };
+      console.error("[API] OTP verification error details:", JSON.stringify(errorDetails, null, 2));
+      
       if (error.response) {
         return {
           success: false,
-          message: error.response.data?.message || "Invalid OTP code"
+          message: error.response.data?.message || "Invalid OTP code",
+          error: error.response.data
         };
       }
       return {
         success: false,
-        message: "Connection error. Please check your internet connection."
+        message: "Connection error. Please check your internet connection.",
+        error: error.message
       };
     }
   },

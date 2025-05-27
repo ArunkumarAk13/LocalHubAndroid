@@ -274,7 +274,7 @@ router.post('/send-otp', async (req, res) => {
 });
 
 // Verify OTP
-router.post('/api/auth/verify-otp', async (req, res) => {
+router.post('/verify-otp', async (req, res) => {
     try {
         const { phoneNumber, code } = req.body;
         
