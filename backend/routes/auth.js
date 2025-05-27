@@ -235,7 +235,7 @@ router.get('/api/twilio/config', async (req, res) => {
 });
 
 // Send OTP
-router.post('/api/auth/send-otp', async (req, res) => {
+router.post('/send-otp', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
         

@@ -105,20 +105,35 @@ export const authAPI = {
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number:', formattedNumber);
       
-      const response = await api.post('/api/auth/send-otp', { phoneNumber: formattedNumber });
+      const response = await api.post('/api/auth/send-otp', { phone_number: formattedNumber });
       console.log('[API] OTP request response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error("[API] OTP request error:", error.response || error);
+      // Log detailed error information with proper stringification
+      const errorDetails = {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      };
+      console.error("[API] OTP request error details:", JSON.stringify(errorDetails, null, 2));
+      
       if (error.response) {
         return {
           success: false,
-          message: error.response.data?.message || "Failed to send OTP"
+          message: error.response.data?.message || "Failed to send OTP",
+          error: error.response.data
         };
       }
       return {
         success: false,
-        message: "Connection error. Please check your internet connection."
+        message: "Connection error. Please check your internet connection.",
+        error: error.message
       };
     }
   },
