@@ -7,7 +7,6 @@
         </trust-anchors>
     </base-config>
     <domain-config>
-        <domain includeSubdomains="true">firebase.googleapis.com</domain>
         <domain includeSubdomains="true">googleapis.com</domain>
         <trust-anchors>
             <certificates src="system" />

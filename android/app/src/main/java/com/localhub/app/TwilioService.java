@@ -97,8 +97,9 @@ public class TwilioService {
             String formattedNumber = formatPhoneNumber(phoneNumber);
             Log.d(TAG, "Verifying code for: " + formattedNumber);
 
-            VerificationCheck verificationCheck = VerificationCheck.creator(TwilioConfig.getVerifyServiceSid(), code)
+            VerificationCheck verificationCheck = VerificationCheck.creator(TwilioConfig.getVerifyServiceSid())
                 .setTo(formattedNumber)
+                .setCode(code)
                 .create();
 
             if (verificationCheck.getStatus().equals("approved")) {

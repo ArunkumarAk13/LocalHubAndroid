@@ -17,7 +17,7 @@ public class TwilioConfig {
         ApiService apiService = RetrofitClient.getClient(BASE_URL).create(ApiService.class);
         
         // Fetch Twilio credentials from your backend
-        apiService.getTwilioConfig().enqueue(new retrofit2.Callback<TwilioCredentials>() {
+        apiService.getTwilioConfig("Bearer your-auth-token").enqueue(new retrofit2.Callback<TwilioCredentials>() {
             @Override
             public void onResponse(retrofit2.Call<TwilioCredentials> call, retrofit2.Response<TwilioCredentials> response) {
                 if (response.isSuccessful() && response.body() != null) {
