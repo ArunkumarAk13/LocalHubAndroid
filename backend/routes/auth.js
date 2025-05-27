@@ -294,10 +294,14 @@ router.post('/verify-otp', async (req, res) => {
             );
 
             if (userResult.rows.length === 0) {
-                // Create new user
+                // Generate a default name using the last 4 digits of the phone number
+                const defaultName = `User${formattedNumber.slice(-4)}`;
+                const defaultAvatar = 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=';
+                
+                // Create new user with default name and avatar
                 await pool.query(
-                    'INSERT INTO users (phone_number, created_at) VALUES ($1, NOW())',
-                    [formattedNumber]
+                    'INSERT INTO users (name, phone_number, avatar, created_at) VALUES ($1, $2, $3, NOW())',
+                    [defaultName, formattedNumber, defaultAvatar]
                 );
             }
 
@@ -316,7 +320,8 @@ router.post('/verify-otp', async (req, res) => {
         console.error('Error verifying OTP:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to verify OTP' 
+            error: 'Failed to verify OTP',
+            details: error.message 
         });
     }
 });
