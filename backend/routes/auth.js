@@ -3,8 +3,28 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const auth = require('../middleware/auth');
+const twilio = require('twilio');
+const { Pool } = require('pg');
 
 const router = express.Router();
+
+// Initialize Twilio client
+const twilioClient = twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+);
+
+// Initialize PostgreSQL connection
+const pool = new Pool({
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
 // Register a new user
 router.post('/register', async (req, res, next) => {
@@ -225,6 +245,114 @@ router.get('/me', auth, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+// Get Twilio config
+router.get('/api/twilio/config', async (req, res) => {
+    try {
+        res.json({
+            accountSid: process.env.TWILIO_ACCOUNT_SID,
+            authToken: process.env.TWILIO_AUTH_TOKEN,
+            verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID
+        });
+    } catch (error) {
+        console.error('Error getting Twilio config:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Send OTP
+router.post('/api/auth/send-otp', async (req, res) => {
+    try {
+        const { phoneNumber } = req.body;
+        
+        // Format phone number to E.164 format
+        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+        
+        // Send verification code
+        const verification = await twilioClient.verify.v2
+            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+            .verifications.create({ to: formattedNumber, channel: 'sms' });
+
+        res.json({ 
+            success: true, 
+            message: 'OTP sent successfully',
+            status: verification.status 
+        });
+    } catch (error) {
+        console.error('Error sending OTP:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to send OTP' 
+        });
+    }
+});
+
+// Verify OTP
+router.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+        const { phoneNumber, code } = req.body;
+        
+        // Format phone number to E.164 format
+        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+        
+        // Verify the code
+        const verificationCheck = await twilioClient.verify.v2
+            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+            .verificationChecks.create({ to: formattedNumber, code });
+
+        if (verificationCheck.status === 'approved') {
+            // Check if user exists
+            const userResult = await pool.query(
+                'SELECT * FROM users WHERE phone_number = $1',
+                [formattedNumber]
+            );
+
+            if (userResult.rows.length === 0) {
+                // Create new user
+                await pool.query(
+                    'INSERT INTO users (phone_number, created_at) VALUES ($1, NOW())',
+                    [formattedNumber]
+                );
+            }
+
+            res.json({ 
+                success: true, 
+                message: 'Phone number verified successfully',
+                isNewUser: userResult.rows.length === 0
+            });
+        } else {
+            res.status(400).json({ 
+                success: false, 
+                error: 'Invalid verification code' 
+            });
+        }
+    } catch (error) {
+        console.error('Error verifying OTP:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to verify OTP' 
+        });
+    }
+});
+
+// Test database connection
+router.get('/api/test-db', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT NOW()');
+        res.json({
+            success: true,
+            message: 'Database connection successful',
+            timestamp: result.rows[0].now
+        });
+    } catch (error) {
+        console.error('Database connection error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Database connection failed',
+            details: error.message
+        });
+    }
 });
 
 module.exports = router;

@@ -12,24 +12,15 @@
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
 
-        <meta-data
-            android:name="com.google.android.gms.version"
-            android:value="@integer/google_play_services_version" />
-        <meta-data
-            android:name="com.google.android.gms.safetynet.ATTEST_API_KEY"
-            android:value="AIzaSyDaYhYzRxNEkBUTZzVkJ9SD4z5VmvciA1A" />
-        <meta-data
-            android:name="com.google.firebase.auth.API_KEY"
-            android:value="AIzaSyDaYhYzRxNEkBUTZzVkJ9SD4z5VmvciA1A" />
-        <meta-data
-            android:name="com.google.android.recaptcha.SITE_KEY"
-            android:value="${recaptchaSiteKey}" />
-        <meta-data
-            android:name="com.google.android.gms.play.integrity.API_KEY"
-            android:value="${playIntegrityApiKey}" />
-        <meta-data
-            android:name="com.google.android.gms.play.integrity.ENABLE_DEBUG_LOGGING"
-            android:value="true" />
+        <activity
+            android:name=".RegistrationActivity"
+            android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:exported="true"
@@ -96,4 +87,7 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="com.google.android.gms.permission.PLAY_INTEGRITY" />
+
+    <!-- Add telephony feature -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 </manifest>
