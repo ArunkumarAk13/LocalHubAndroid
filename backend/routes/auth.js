@@ -33,21 +33,6 @@ const verifiedPhones = new Map();
 // Store pending registrations (in production, use Redis or similar)
 const pendingRegistrations = new Map();
 
-// Helper function to format phone number
-const formatPhoneNumber = (phoneNumber) => {
-    // Remove any existing +91 prefix
-    let number = phoneNumber.replace(/^\+91/, '');
-    // Remove any spaces or special characters
-    number = number.replace(/[^0-9]/g, '');
-    return number;
-};
-
-// Helper function to format phone number for Twilio
-const formatPhoneNumberForTwilio = (phoneNumber) => {
-    const formattedNumber = formatPhoneNumber(phoneNumber);
-    return `+91${formattedNumber}`;
-};
-
 // Register a new user
 router.post('/register', async (req, res, next) => {
   try {
@@ -266,30 +251,10 @@ router.post('/send-otp', async (req, res) => {
     try {
         const { phoneNumber, name, password, confirmPassword } = req.body;
         
-        // Log the request body
-        console.log('[Backend] Registration request data:', {
-            phoneNumber,
-            name,
-            password: password ? '******' : null,
-            confirmPassword: confirmPassword ? '******' : null
-        });
-        
         if (!phoneNumber || !name || !password || !confirmPassword) {
-            console.log('[Backend] Missing fields:', {
-                phoneNumber: !phoneNumber,
-                name: !name,
-                password: !password,
-                confirmPassword: !confirmPassword
-            });
             return res.status(400).json({
                 success: false,
-                message: 'All fields are required',
-                details: {
-                    phoneNumber: !phoneNumber ? 'Phone number is required' : null,
-                    name: !name ? 'Name is required' : null,
-                    password: !password ? 'Password is required' : null,
-                    confirmPassword: !confirmPassword ? 'Confirm password is required' : null
-                }
+                message: 'All fields are required'
             });
         }
 
@@ -309,9 +274,9 @@ router.post('/send-otp', async (req, res) => {
 
         console.log('[Backend] Received OTP request for:', phoneNumber);
         
-        // Format phone number for Twilio
-        const formattedNumber = formatPhoneNumberForTwilio(phoneNumber);
-        console.log('[Backend] Formatted phone number for Twilio:', formattedNumber);
+        // Format phone number to E.164 format if not already formatted
+        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+        console.log('[Backend] Formatted phone number:', formattedNumber);
         
         // Send verification code
         const verification = await twilioClient.verify.v2
@@ -320,11 +285,10 @@ router.post('/send-otp', async (req, res) => {
 
         console.log('[Backend] Twilio verification response:', verification);
 
-        // Store the pending registration with formatted phone number
+        // Store the pending registration
         pendingRegistrations.set(formattedNumber, {
             name,
             password,
-            phoneNumber: formatPhoneNumber(phoneNumber), // Store without +91
             expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
         });
 
@@ -347,8 +311,8 @@ router.post('/verify-otp', async (req, res) => {
     try {
         const { phoneNumber, code } = req.body;
         
-        // Format phone number for Twilio
-        const formattedNumber = formatPhoneNumberForTwilio(phoneNumber);
+        // Format phone number to E.164 format
+        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
         
         // Verify the code
         const verificationCheck = await twilioClient.verify.v2
@@ -368,7 +332,7 @@ router.post('/verify-otp', async (req, res) => {
             // Check if user already exists
             const existingUser = await pool.query(
                 'SELECT * FROM users WHERE phone_number = $1',
-                [registration.phoneNumber] // Use stored phone number without +91
+                [formattedNumber]
             );
 
             if (existingUser.rows.length > 0) {
@@ -384,10 +348,10 @@ router.post('/verify-otp', async (req, res) => {
             // Generate default avatar
             const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.name)}&background=random`;
             
-            // Create new user with phone number without +91
+            // Create new user
             const result = await pool.query(
                 'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, phone_number, avatar, rating',
-                [registration.name, hashedPassword, avatar, registration.phoneNumber, true]
+                [registration.name, hashedPassword, avatar, formattedNumber, true]
             );
 
             const user = result.rows[0];

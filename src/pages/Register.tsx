@@ -146,12 +146,7 @@ const Register = () => {
       console.log('[Register] Is Android:', Capacitor.getPlatform() === 'android');
       console.log('[Register] Phone number:', values.phoneNumber);
       
-      const response = await authAPI.requestOTP(
-        values.phoneNumber,
-        values.name,
-        values.password,
-        values.confirmPassword
-      );
+      const response = await authAPI.requestOTP(values.phoneNumber);
       
       if (response.success) {
         setRegistrationStep(RegistrationStep.OTP_VERIFICATION);

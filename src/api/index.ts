@@ -61,9 +61,7 @@ export const authAPI = {
   login: async (phoneNumber: string, password: string) => {
     try {
       console.log('[API] Attempting login for:', phoneNumber);
-      // Format phone number to E.164 format if not already formatted
-      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      const response = await api.post('/api/auth/login', { phone_number: formattedNumber, password });
+      const response = await api.post('/api/auth/login', { phone_number: phoneNumber, password });
       console.log('[API] Login response:', response.data);
       return response.data;
     } catch (error: any) {
@@ -100,19 +98,14 @@ export const authAPI = {
     }
   },
 
-  requestOTP: async (phoneNumber: string, name: string, password: string, confirmPassword: string) => {
+  requestOTP: async (phoneNumber: string) => {
     try {
       console.log('[API] Requesting OTP for:', phoneNumber);
       // Format phone number to E.164 format if not already formatted
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number:', formattedNumber);
       
-      const response = await api.post('/api/auth/send-otp', { 
-        phoneNumber: formattedNumber,
-        name,
-        password,
-        confirmPassword
-      });
+      const response = await api.post('/api/auth/send-otp', { phoneNumber: formattedNumber });
       console.log('[API] OTP request response:', response.data);
       return response.data;
     } catch (error: any) {
@@ -191,30 +184,25 @@ export const authAPI = {
   registerWithOTP: async (name: string, phoneNumber: string, password: string, otp: string) => {
     try {
       console.log('[API] Registering user with OTP:', { name, phoneNumber });
-      // Format phone number to E.164 format if not already formatted
-      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      console.log('[API] Formatted phone number for registration:', formattedNumber);
-      
       const response = await api.post('/api/auth/register-with-otp', { 
         name, 
         password, 
-        phone_number: formattedNumber,
+        phone_number: phoneNumber,
         otp_code: otp
       });
       console.log('[API] Registration response:', response.data);
       return response.data;
     } catch (error: any) {
-      // Since we know the user is created in the database, return success
-      // This will allow the frontend to proceed with login and redirect
-      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      console.error("[API] Registration with OTP error:", error.response || error);
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || "Registration failed"
+        };
+      }
       return {
-        success: true,
-        message: "Registration successful",
-        user: {
-          name,
-          phone_number: formattedNumber
-        },
-        token: error.response?.data?.token // Include token if available in error response
+        success: false,
+        message: "Connection error. Please check your internet connection."
       };
     }
   },
