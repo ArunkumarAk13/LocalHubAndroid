@@ -30,6 +30,9 @@ const pool = new Pool({
 // Store verified phone numbers (in production, use Redis or similar)
 const verifiedPhones = new Map();
 
+// Store pending registrations (in production, use Redis or similar)
+const pendingRegistrations = new Map();
+
 // Register a new user
 router.post('/register', async (req, res, next) => {
   try {
@@ -79,7 +82,7 @@ router.post('/register', async (req, res, next) => {
 // Register with OTP verification
 router.post('/register-with-otp', async (req, res) => {
   try {
-    const { name, phone_number, password, otp_code } = req.body;
+    const { name, phone_number, password } = req.body;
 
     // Validate required fields
     if (!name || !phone_number || !password) {
@@ -246,12 +249,26 @@ router.get('/api/twilio/config', async (req, res) => {
 // Send OTP
 router.post('/send-otp', async (req, res) => {
     try {
-        const { phoneNumber } = req.body;
+        const { phoneNumber, name, password, confirmPassword } = req.body;
         
-        if (!phoneNumber) {
+        if (!phoneNumber || !name || !password || !confirmPassword) {
             return res.status(400).json({
                 success: false,
-                message: 'Phone number is required'
+                message: 'All fields are required'
+            });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Passwords do not match'
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters long'
             });
         }
 
@@ -268,6 +285,13 @@ router.post('/send-otp', async (req, res) => {
 
         console.log('[Backend] Twilio verification response:', verification);
 
+        // Store the pending registration
+        pendingRegistrations.set(formattedNumber, {
+            name,
+            password,
+            expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+        });
+
         res.json({ 
             success: true,
             message: 'OTP sent successfully',
@@ -282,7 +306,7 @@ router.post('/send-otp', async (req, res) => {
     }
 });
 
-// Verify OTP
+// Verify OTP and complete registration
 router.post('/verify-otp', async (req, res) => {
     try {
         const { phoneNumber, code } = req.body;
@@ -296,22 +320,63 @@ router.post('/verify-otp', async (req, res) => {
             .verificationChecks.create({ to: formattedNumber, code });
 
         if (verificationCheck.status === 'approved') {
-            // Store the verified phone number with a 10-minute expiration
-            verifiedPhones.set(formattedNumber, {
-                verified: true,
-                expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
-            });
+            // Get pending registration
+            const registration = pendingRegistrations.get(formattedNumber);
+            if (!registration || Date.now() > registration.expiresAt) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Registration session expired. Please start again.'
+                });
+            }
 
-            // Check if user exists
-            const userResult = await pool.query(
+            // Check if user already exists
+            const existingUser = await pool.query(
                 'SELECT * FROM users WHERE phone_number = $1',
                 [formattedNumber]
             );
 
-            res.json({ 
-                success: true, 
-                message: 'Phone number verified successfully',
-                isNewUser: userResult.rows.length === 0
+            if (existingUser.rows.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'User already exists with this phone number'
+                });
+            }
+
+            // Hash password
+            const hashedPassword = await bcrypt.hash(registration.password, 10);
+
+            // Generate default avatar
+            const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.name)}&background=random`;
+            
+            // Create new user
+            const result = await pool.query(
+                'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, phone_number, avatar, rating',
+                [registration.name, hashedPassword, avatar, formattedNumber, true]
+            );
+
+            const user = result.rows[0];
+
+            // Remove pending registration
+            pendingRegistrations.delete(formattedNumber);
+
+            // Generate JWT token
+            const token = jwt.sign(
+                { userId: user.id },
+                process.env.JWT_SECRET,
+                { expiresIn: '7d' }
+            );
+
+            res.json({
+                success: true,
+                message: 'Registration successful',
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    phone_number: user.phone_number,
+                    avatar: user.avatar,
+                    rating: user.rating
+                },
+                token
             });
         } else {
             res.status(400).json({ 
