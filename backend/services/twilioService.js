@@ -39,10 +39,18 @@ const twilioService = {
             // Format phone number to E.164 format
             const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
             
+            console.log('[TwilioService] Verifying OTP for:', formattedNumber);
+            console.log('[TwilioService] Using service SID:', process.env.TWILIO_VERIFY_SERVICE_SID);
+            
             // Verify the code
             const verificationCheck = await twilioClient.verify.v2
                 .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-                .verificationChecks.create({ to: formattedNumber, code: otpCode });
+                .verificationChecks.create({ 
+                    to: formattedNumber, 
+                    code: otpCode 
+                });
+
+            console.log('[TwilioService] Verification check response:', verificationCheck);
 
             if (verificationCheck.status === 'approved') {
                 return {
@@ -52,11 +60,28 @@ const twilioService = {
             } else {
                 return {
                     success: false,
-                    message: 'Invalid verification code'
+                    message: 'Invalid verification code',
+                    status: verificationCheck.status
                 };
             }
         } catch (error) {
-            console.error('Error verifying OTP:', error);
+            console.error('[TwilioService] Error verifying OTP:', error);
+            console.error('[TwilioService] Error details:', {
+                code: error.code,
+                status: error.status,
+                message: error.message,
+                moreInfo: error.moreInfo
+            });
+
+            // Handle specific Twilio error codes
+            if (error.code === 20404) {
+                return {
+                    success: false,
+                    message: 'Verification code has expired or is invalid. Please request a new code.',
+                    error: error.message
+                };
+            }
+
             return {
                 success: false,
                 message: 'Failed to verify OTP',
