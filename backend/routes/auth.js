@@ -27,6 +27,9 @@ const pool = new Pool({
     }
 });
 
+// Store verified phone numbers (in production, use Redis or similar)
+const verifiedPhones = new Map();
+
 // Register a new user
 router.post('/register', async (req, res, next) => {
   try {
@@ -73,25 +76,28 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
-// Register with OTP verification (using Twilio)
+// Register with OTP verification
 router.post('/register-with-otp', async (req, res) => {
   try {
     const { name, phone_number, password, otp_code } = req.body;
 
     // Validate required fields
-    if (!name || !phone_number || !password || !otp_code) {
+    if (!name || !phone_number || !password) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
       });
     }
 
-    // Verify OTP first
-    const verifyResponse = await twilioService.verifyOTP(phone_number, otp_code);
-    if (!verifyResponse.success) {
+    // Format phone number
+    const formattedNumber = phone_number.startsWith('+') ? phone_number : `+91${phone_number}`;
+
+    // Check if phone number is verified
+    const verificationStatus = verifiedPhones.get(formattedNumber);
+    if (!verificationStatus || !verificationStatus.verified || Date.now() > verificationStatus.expiresAt) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid OTP code'
+        message: 'Phone number not verified or verification expired. Please verify your phone number again.'
       });
     }
 
@@ -104,10 +110,13 @@ router.post('/register-with-otp', async (req, res) => {
     // Insert user into database
     const result = await pool.query(
       'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, avatar, phone_number, rating',
-      [name, hashedPassword, avatar, phone_number, true]
+      [name, hashedPassword, avatar, formattedNumber, true]
     );
 
     const user = result.rows[0];
+
+    // Remove the verified phone number from storage
+    verifiedPhones.delete(formattedNumber);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -287,6 +296,12 @@ router.post('/verify-otp', async (req, res) => {
             .verificationChecks.create({ to: formattedNumber, code });
 
         if (verificationCheck.status === 'approved') {
+            // Store the verified phone number with a 10-minute expiration
+            verifiedPhones.set(formattedNumber, {
+                verified: true,
+                expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+            });
+
             // Check if user exists
             const userResult = await pool.query(
                 'SELECT * FROM users WHERE phone_number = $1',
