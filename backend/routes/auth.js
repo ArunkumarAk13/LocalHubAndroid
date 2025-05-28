@@ -252,54 +252,80 @@ router.post('/send-otp', async (req, res) => {
     console.log('[Backend] OTP request received:', JSON.stringify(req.body, null, 2));
     const { phoneNumber, name, password, confirmPassword } = req.body;
     
-    if (!phoneNumber || !name || !password || !confirmPassword) {
-      console.log('[Backend] Missing required fields:', { 
-        phoneNumber: !!phoneNumber, 
-        name: !!name, 
-        password: !!password, 
-        confirmPassword: !!confirmPassword 
-      });
+    // Validate phone number
+    if (!phoneNumber) {
+      console.log('[Backend] Missing phone number');
       return res.status(400).json({
         success: false,
-        message: 'All fields are required'
+        message: 'Phone number is required'
       });
     }
 
-    if (password !== confirmPassword) {
-      console.log('[Backend] Passwords do not match');
-      return res.status(400).json({
-        success: false,
-        message: 'Passwords do not match'
-      });
-    }
-
-    if (password.length < 6) {
-      console.log('[Backend] Password too short');
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 6 characters long'
-      });
-    }
-
-    console.log('[Backend] Received OTP request for:', phoneNumber);
-    
     // Format phone number to E.164 format if not already formatted
     const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
     console.log('[Backend] Formatted phone number:', formattedNumber);
+
+    // Check if user already exists
+    const existingUser = await pool.query(
+      'SELECT * FROM users WHERE phone_number = $1',
+      [formattedNumber]
+    );
+
+    if (existingUser.rows.length > 0) {
+      console.log('[Backend] User already exists with this phone number');
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this phone number'
+      });
+    }
+
+    // Validate other fields if provided
+    if (name || password || confirmPassword) {
+      if (!name || !password || !confirmPassword) {
+        console.log('[Backend] Missing registration fields:', { 
+          name: !!name, 
+          password: !!password, 
+          confirmPassword: !!confirmPassword 
+        });
+        return res.status(400).json({
+          success: false,
+          message: 'All registration fields (name, password, confirmPassword) are required'
+        });
+      }
+
+      if (password !== confirmPassword) {
+        console.log('[Backend] Passwords do not match');
+        return res.status(400).json({
+          success: false,
+          message: 'Passwords do not match'
+        });
+      }
+
+      if (password.length < 6) {
+        console.log('[Backend] Password too short');
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters long'
+        });
+      }
+    }
     
     // Send verification code
+    console.log('[Backend] Sending verification code to:', formattedNumber);
     const verification = await twilioClient.verify.v2
       .services(process.env.TWILIO_VERIFY_SERVICE_SID)
       .verifications.create({ to: formattedNumber, channel: 'sms' });
 
     console.log('[Backend] Twilio verification response:', JSON.stringify(verification, null, 2));
 
-    // Store the pending registration
-    pendingRegistrations.set(formattedNumber, {
-      name,
-      password,
-      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
-    });
+    // Store the pending registration if registration data was provided
+    if (name && password) {
+      pendingRegistrations.set(formattedNumber, {
+        name,
+        password,
+        expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+      });
+    }
 
     const response = { 
       success: true,

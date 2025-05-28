@@ -99,13 +99,18 @@ export const authAPI = {
     }
   },
 
-  requestOTP: async (phoneNumber: string) => {
+  requestOTP: async (phoneNumber: string, name: string, password: string, confirmPassword: string) => {
     try {
       console.log('[API] Requesting OTP for:', phoneNumber);
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number:', formattedNumber);
       
-      const response = await api.post('/api/auth/send-otp', { phoneNumber: formattedNumber });
+      const response = await api.post('/api/auth/send-otp', { 
+        phoneNumber: formattedNumber,
+        name,
+        password,
+        confirmPassword
+      });
       console.log('[API] OTP request response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
