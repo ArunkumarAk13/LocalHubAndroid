@@ -266,10 +266,30 @@ router.post('/send-otp', async (req, res) => {
     try {
         const { phoneNumber, name, password, confirmPassword } = req.body;
         
+        // Log the request body
+        console.log('[Backend] Registration request data:', {
+            phoneNumber,
+            name,
+            password: password ? '******' : null,
+            confirmPassword: confirmPassword ? '******' : null
+        });
+        
         if (!phoneNumber || !name || !password || !confirmPassword) {
+            console.log('[Backend] Missing fields:', {
+                phoneNumber: !phoneNumber,
+                name: !name,
+                password: !password,
+                confirmPassword: !confirmPassword
+            });
             return res.status(400).json({
                 success: false,
-                message: 'All fields are required'
+                message: 'All fields are required',
+                details: {
+                    phoneNumber: !phoneNumber ? 'Phone number is required' : null,
+                    name: !name ? 'Name is required' : null,
+                    password: !password ? 'Password is required' : null,
+                    confirmPassword: !confirmPassword ? 'Confirm password is required' : null
+                }
             });
         }
 
