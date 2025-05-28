@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -56,6 +56,7 @@ enum RegistrationStep {
 const Register = () => {
   const { toast } = useToast();
   const { register } = useAuth();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -223,40 +224,29 @@ const Register = () => {
     try {
       console.log('[Register] Verifying OTP for phone:', formValues.phoneNumber);
       
-      const verifyResponse = await authAPI.verifyOTP(formValues.phoneNumber, otp);
+      const verifyResponse = await authAPI.verifyOTP(
+        formValues.phoneNumber, 
+        otp,
+        {
+          name: formValues.name,
+          password: formValues.password
+        }
+      );
       
       if (verifyResponse.success) {
-        console.log('[Register] OTP verified successfully, completing registration');
-        
-        // Complete registration
-        const registerResponse = await authAPI.registerWithOTP(
-          formValues.name,
-          formValues.phoneNumber,
-          formValues.password,
-          otp
-        );
-        
-        if (registerResponse.success) {
-          toast({
-            title: "Success",
-            description: "Registration completed successfully",
-          });
-          // Navigate to login or home page
-          window.location.href = '/login';
-        } else {
-          setOtpError(registerResponse.message || "Failed to complete registration. Please try again.");
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: registerResponse.message || "Failed to complete registration. Please try again.",
-          });
-        }
+        console.log('[Register] OTP verified successfully, registration completed');
+        toast({
+          title: "Success",
+          description: "Registration completed successfully",
+        });
+        // Navigate to login page
+        navigate('/login', { replace: true });
       } else {
-        setOtpError(verifyResponse.message || "Invalid OTP. Please try again.");
+        setOtpError(verifyResponse.message || "Failed to complete registration. Please try again.");
         toast({
           variant: "destructive",
           title: "Error",
-          description: verifyResponse.message || "Invalid OTP. Please try again.",
+          description: verifyResponse.message || "Failed to complete registration. Please try again.",
         });
       }
     } catch (error: any) {

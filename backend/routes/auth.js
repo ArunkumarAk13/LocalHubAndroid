@@ -129,9 +129,9 @@ router.post('/register-with-otp', async (req, res) => {
     // Remove the verified phone number from storage
     verifiedPhones.delete(formattedNumber);
 
-    // Generate JWT token
+    // Generate JWT token with 'id' instead of 'userId'
     const token = jwt.sign(
-      { userId: user.id },
+      { id: user.id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -191,9 +191,9 @@ router.post('/login', async (req, res, next) => {
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
     
-    // Generate JWT token
+    // Generate JWT token with 'id' instead of 'userId'
     const token = jwt.sign(
-      { userId: user.id },
+      { id: user.id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -419,9 +419,9 @@ router.post('/verify-otp', async (req, res) => {
       // Remove pending registration
       pendingRegistrations.delete(formattedNumber);
 
-      // Generate JWT token
+      // Generate JWT token with 'id' instead of 'userId'
       const token = jwt.sign(
-        { userId: user.id },
+        { id: user.id },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );

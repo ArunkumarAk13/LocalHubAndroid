@@ -15,6 +15,35 @@ const api = axios.create({
   withCredentials: !Capacitor.isNativePlatform()
 });
 
+// Helper function to validate token
+const validateToken = (token: string): boolean => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+
+    const payload = JSON.parse(jsonPayload);
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    // Check if token is expired
+    if (payload.exp && payload.exp < currentTime) {
+      return false;
+    }
+    
+    // Check if user ID exists
+    if (!payload.userId) {
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Token validation error:', error);
+    return false;
+  }
+};
+
 // Add a request interceptor to include the token in all authenticated requests
 api.interceptors.request.use(
   (config) => {
@@ -60,23 +89,25 @@ api.interceptors.response.use(
 export const authAPI = {
   login: async (phoneNumber: string, password: string) => {
     try {
-      console.log('[API] Attempting login for:', phoneNumber);
-      const response = await api.post('/api/auth/login', { phone_number: phoneNumber, password });
-      console.log('[API] Login response:', JSON.stringify(response.data, null, 2));
+      const response = await api.post('/api/auth/login', { 
+        phone_number: phoneNumber,
+        password 
+      });
       return response.data;
     } catch (error: any) {
-      console.error('[API] Login error:', JSON.stringify({
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers,
-          data: error.config?.data
-        }
-      }, null, 2));
-      throw error;
+      console.error("Login API error:", error.response || error);
+      
+      if (error.response) {
+        return {
+          success: false,
+          message: error.response.data?.message || "Invalid phone number or password"
+        };
+      }
+      
+      return {
+        success: false,
+        message: "Connection error. Please check your internet connection."
+      };
     }
   },
 
@@ -198,15 +229,9 @@ export const authAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Get current user error:", error.response || error);
-      if (error.response) {
-        return {
-          success: false,
-          message: error.response.data?.message || "Failed to get user data"
-        };
-      }
       return {
         success: false,
-        message: "Connection error. Please check your internet connection."
+        message: error.response?.data?.message || "Failed to get user data"
       };
     }
   }
@@ -371,10 +396,10 @@ export const usersAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Error in subscribe category:", error);
-      if (error.response) {
-        return error.response.data;
-      }
-      throw error;
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to subscribe to category"
+      };
     }
   },
   
@@ -395,7 +420,6 @@ export const usersAPI = {
   
   getSubscribedCategories: async () => {
     try {
-      // Make sure we have a token before attempting to fetch
       const token = localStorage.getItem('token');
       if (!token) {
         return { 
@@ -405,14 +429,8 @@ export const usersAPI = {
         };
       }
       
-      // Clear any cached categories when fetching new ones for the current user
-      localStorage.removeItem('subscribedCategories');
+      const response = await api.get('/api/users/subscribed-categories');
       
-      // Add a random query parameter to prevent caching
-      const cacheBuster = new Date().getTime();
-      const response = await api.get(`/api/users/subscribed-categories?_=${cacheBuster}`);
-      
-      // Store successfully fetched categories in localStorage with a user identifier
       if (response.data.success && Array.isArray(response.data.categories)) {
         localStorage.setItem('subscribedCategories', JSON.stringify(response.data.categories));
       }
@@ -420,8 +438,6 @@ export const usersAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Error fetching subscribed categories:", error);
-      
-      // Don't use cached data for this scenario as it may belong to another user
       return { 
         success: false, 
         categories: [],
@@ -432,7 +448,6 @@ export const usersAPI = {
   
   getNotifications: async () => {
     try {
-      // Make sure we have a token before attempting to fetch
       const token = localStorage.getItem('token');
       if (!token) {
         return { 
@@ -442,14 +457,8 @@ export const usersAPI = {
         };
       }
       
-      // Clear any cached notifications when fetching new ones for the current user
-      localStorage.removeItem('userNotifications');
+      const response = await api.get('/api/users/notifications');
       
-      // Add a random query parameter to prevent caching
-      const cacheBuster = new Date().getTime();
-      const response = await api.get(`/api/users/notifications?_=${cacheBuster}`);
-      
-      // Store successfully fetched notifications in localStorage for resilience
       if (response.data.success && Array.isArray(response.data.notifications)) {
         localStorage.setItem('userNotifications', JSON.stringify(response.data.notifications));
       }
@@ -457,12 +466,10 @@ export const usersAPI = {
       return response.data;
     } catch (error: any) {
       console.error("Error fetching notifications:", error);
-      
-      // Don't use cached data as it may belong to another user
       return { 
         success: false, 
         notifications: [],
-        message: error.response?.data?.message || "Server error"
+        message: error.response?.data?.message || "Failed to fetch notifications" 
       };
     }
   },
@@ -561,32 +568,37 @@ export const usersAPI = {
 export const chatsAPI = {
   getAllChats: async () => {
     try {
-      const response = await api.get(`/api/chats`);
-      console.log("Raw chats API response:", response);
-      
-      // If response.data is an array, return it directly
-      if (Array.isArray(response.data)) {
-        return {
-          success: true,
-          chats: response.data
-        };
-      }
-      
-    
-      return response.data;
+      const response = await api.get('/api/chats');
+      return {
+        success: true,
+        chats: Array.isArray(response.data) ? response.data : response.data.chats || []
+      };
     } catch (error: any) {
       console.error("Error fetching chats:", error);
-      if (error.response) {
-        return error.response.data;
-      }
       return { 
         success: false, 
         chats: [],
-        message: error.message || "Failed to fetch chats" 
+        message: error.response?.data?.message || "Failed to fetch chats" 
       };
     }
   },
-  // Add other chat-related API functions here
+
+  getUnreadCount: async () => {
+    try {
+      const response = await api.get('/api/chats/unread-count');
+      return {
+        success: true,
+        count: response.data.count || 0
+      };
+    } catch (error: any) {
+      console.error("Error fetching unread count:", error);
+      return {
+        success: false,
+        count: 0,
+        message: error.response?.data?.message || "Failed to fetch unread count"
+      };
+    }
+  }
 };
 
 export default api;
