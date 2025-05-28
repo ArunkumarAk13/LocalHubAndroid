@@ -152,50 +152,39 @@ router.post('/register-with-otp', async (req, res) => {
 // Login user
 router.post('/login', async (req, res, next) => {
   try {
-    const { email, password, phone_number } = req.body;
-    let user;
+    const { phone_number } = req.body;
     
-    // Get user from database - support both email and phone number login
-    if (email) {
-      const emailResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-      if (emailResult.rows.length > 0) {
-        user = emailResult.rows[0];
-      }
+    if (!phone_number) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
     }
+
+    // Format phone number to E.164 format
+    const formattedNumber = phone_number.startsWith('+') ? phone_number : `+91${phone_number}`;
     
-    // If no user found by email, try phone number
-    if (!user && phone_number) {
-      const phoneResult = await db.query('SELECT * FROM users WHERE phone_number = $1', [phone_number]);
-      if (phoneResult.rows.length > 0) {
-        user = phoneResult.rows[0];
-      }
-    }
+    // Get user from database
+    const result = await db.query('SELECT * FROM users WHERE phone_number = $1', [formattedNumber]);
     
-    // If no user found at all
-    if (!user) {
+    // If no user found
+    if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid login credentials'
       });
     }
     
-    // Compare passwords
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid login credentials'
-      });
-    }
+    const user = result.rows[0];
     
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
     
-    // Generate JWT token with numeric ID
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email },
+      { userId: user.id },
       process.env.JWT_SECRET,
-      { expiresIn: '30d' }
+      { expiresIn: '7d' }
     );
     
     res.json({
