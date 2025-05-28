@@ -82,10 +82,12 @@ router.post('/register', async (req, res, next) => {
 // Register with OTP verification
 router.post('/register-with-otp', async (req, res) => {
   try {
+    console.log('[Backend] Registration request received:', JSON.stringify(req.body, null, 2));
     const { name, phone_number, password } = req.body;
 
     // Validate required fields
     if (!name || !phone_number || !password) {
+      console.log('[Backend] Missing required fields:', { name: !!name, phone_number: !!phone_number, password: !!password });
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -94,10 +96,14 @@ router.post('/register-with-otp', async (req, res) => {
 
     // Format phone number
     const formattedNumber = phone_number.startsWith('+') ? phone_number : `+91${phone_number}`;
+    console.log('[Backend] Formatted phone number:', formattedNumber);
 
     // Check if phone number is verified
     const verificationStatus = verifiedPhones.get(formattedNumber);
+    console.log('[Backend] Verification status:', JSON.stringify(verificationStatus, null, 2));
+
     if (!verificationStatus || !verificationStatus.verified || Date.now() > verificationStatus.expiresAt) {
+      console.log('[Backend] Phone number not verified or verification expired');
       return res.status(400).json({
         success: false,
         message: 'Phone number not verified or verification expired. Please verify your phone number again.'
@@ -111,12 +117,14 @@ router.post('/register-with-otp', async (req, res) => {
     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 
     // Insert user into database
+    console.log('[Backend] Inserting user into database:', { name, phone_number: formattedNumber });
     const result = await pool.query(
       'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, avatar, phone_number, rating',
       [name, hashedPassword, avatar, formattedNumber, true]
     );
 
     const user = result.rows[0];
+    console.log('[Backend] User created successfully:', JSON.stringify(user, null, 2));
 
     // Remove the verified phone number from storage
     verifiedPhones.delete(formattedNumber);
@@ -128,7 +136,7 @@ router.post('/register-with-otp', async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    res.json({
+    const response = {
       success: true,
       message: 'User registered successfully',
       user: {
@@ -139,12 +147,15 @@ router.post('/register-with-otp', async (req, res) => {
         rating: user.rating
       },
       token
-    });
+    };
+    console.log('[Backend] Registration response:', JSON.stringify(response, null, 2));
+    res.json(response);
   } catch (err) {
-    console.error('Registration with OTP error:', err);
+    console.error('[Backend] Registration error:', err);
     res.status(500).json({
       success: false,
-      message: 'Registration failed'
+      message: 'Registration failed',
+      error: err.message
     });
   }
 });
@@ -237,150 +248,178 @@ router.get('/api/twilio/config', async (req, res) => {
 
 // Send OTP
 router.post('/send-otp', async (req, res) => {
-    try {
-        const { phoneNumber, name, password, confirmPassword } = req.body;
-        
-        if (!phoneNumber || !name || !password || !confirmPassword) {
-            return res.status(400).json({
-                success: false,
-                message: 'All fields are required'
-            });
-        }
-
-        if (password !== confirmPassword) {
-            return res.status(400).json({
-                success: false,
-                message: 'Passwords do not match'
-            });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: 'Password must be at least 6 characters long'
-            });
-        }
-
-        console.log('[Backend] Received OTP request for:', phoneNumber);
-        
-        // Format phone number to E.164 format if not already formatted
-        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-        console.log('[Backend] Formatted phone number:', formattedNumber);
-        
-        // Send verification code
-        const verification = await twilioClient.verify.v2
-            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-            .verifications.create({ to: formattedNumber, channel: 'sms' });
-
-        console.log('[Backend] Twilio verification response:', verification);
-
-        // Store the pending registration
-        pendingRegistrations.set(formattedNumber, {
-            name,
-            password,
-            expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
-        });
-
-        res.json({ 
-            success: true,
-            message: 'OTP sent successfully',
-            verification
-        });
-    } catch (error) {
-        console.error('[Backend] Error sending OTP:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message || 'Failed to send OTP'
-        });
+  try {
+    console.log('[Backend] OTP request received:', JSON.stringify(req.body, null, 2));
+    const { phoneNumber, name, password, confirmPassword } = req.body;
+    
+    if (!phoneNumber || !name || !password || !confirmPassword) {
+      console.log('[Backend] Missing required fields:', { 
+        phoneNumber: !!phoneNumber, 
+        name: !!name, 
+        password: !!password, 
+        confirmPassword: !!confirmPassword 
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
     }
+
+    if (password !== confirmPassword) {
+      console.log('[Backend] Passwords do not match');
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    if (password.length < 6) {
+      console.log('[Backend] Password too short');
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    console.log('[Backend] Received OTP request for:', phoneNumber);
+    
+    // Format phone number to E.164 format if not already formatted
+    const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+    console.log('[Backend] Formatted phone number:', formattedNumber);
+    
+    // Send verification code
+    const verification = await twilioClient.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verifications.create({ to: formattedNumber, channel: 'sms' });
+
+    console.log('[Backend] Twilio verification response:', JSON.stringify(verification, null, 2));
+
+    // Store the pending registration
+    pendingRegistrations.set(formattedNumber, {
+      name,
+      password,
+      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+    });
+
+    const response = { 
+      success: true,
+      message: 'OTP sent successfully',
+      verification
+    };
+    console.log('[Backend] OTP response:', JSON.stringify(response, null, 2));
+    res.json(response);
+  } catch (error) {
+    console.error('[Backend] Error sending OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to send OTP',
+      error: error.message
+    });
+  }
 });
 
 // Verify OTP and complete registration
 router.post('/verify-otp', async (req, res) => {
-    try {
-        const { phoneNumber, code } = req.body;
-        
-        // Format phone number to E.164 format
-        const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-        
-        // Verify the code
-        const verificationCheck = await twilioClient.verify.v2
-            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
-            .verificationChecks.create({ to: formattedNumber, code });
+  try {
+    console.log('[Backend] OTP verification request received:', JSON.stringify(req.body, null, 2));
+    const { phoneNumber, code } = req.body;
+    
+    // Format phone number to E.164 format
+    const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+    console.log('[Backend] Formatted phone number:', formattedNumber);
+    
+    // Verify the code
+    console.log('[Backend] Verifying code with Twilio');
+    const verificationCheck = await twilioClient.verify.v2
+      .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+      .verificationChecks.create({ to: formattedNumber, code });
 
-        if (verificationCheck.status === 'approved') {
-            // Get pending registration
-            const registration = pendingRegistrations.get(formattedNumber);
-            if (!registration || Date.now() > registration.expiresAt) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Registration session expired. Please start again.'
-                });
-            }
+    console.log('[Backend] Twilio verification check response:', JSON.stringify(verificationCheck, null, 2));
 
-            // Check if user already exists
-            const existingUser = await pool.query(
-                'SELECT * FROM users WHERE phone_number = $1',
-                [formattedNumber]
-            );
+    if (verificationCheck.status === 'approved') {
+      // Get pending registration
+      const registration = pendingRegistrations.get(formattedNumber);
+      console.log('[Backend] Pending registration:', JSON.stringify(registration, null, 2));
 
-            if (existingUser.rows.length > 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'User already exists with this phone number'
-                });
-            }
-
-            // Hash password
-            const hashedPassword = await bcrypt.hash(registration.password, 10);
-
-            // Generate default avatar
-            const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.name)}&background=random`;
-            
-            // Create new user
-            const result = await pool.query(
-                'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, phone_number, avatar, rating',
-                [registration.name, hashedPassword, avatar, formattedNumber, true]
-            );
-
-            const user = result.rows[0];
-
-            // Remove pending registration
-            pendingRegistrations.delete(formattedNumber);
-
-            // Generate JWT token
-            const token = jwt.sign(
-                { userId: user.id },
-                process.env.JWT_SECRET,
-                { expiresIn: '7d' }
-            );
-
-            res.json({
-                success: true,
-                message: 'Registration successful',
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    phone_number: user.phone_number,
-                    avatar: user.avatar,
-                    rating: user.rating
-                },
-                token
-            });
-        } else {
-            res.status(400).json({ 
-                success: false, 
-                error: 'Invalid verification code' 
-            });
-        }
-    } catch (error) {
-        console.error('Error verifying OTP:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to verify OTP',
-            details: error.message 
+      if (!registration || Date.now() > registration.expiresAt) {
+        console.log('[Backend] Registration session expired');
+        return res.status(400).json({
+          success: false,
+          message: 'Registration session expired. Please start again.'
         });
+      }
+
+      // Check if user already exists
+      console.log('[Backend] Checking for existing user');
+      const existingUser = await pool.query(
+        'SELECT * FROM users WHERE phone_number = $1',
+        [formattedNumber]
+      );
+
+      if (existingUser.rows.length > 0) {
+        console.log('[Backend] User already exists');
+        return res.status(400).json({
+          success: false,
+          message: 'User already exists with this phone number'
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(registration.password, 10);
+
+      // Generate default avatar
+      const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.name)}&background=random`;
+      
+      // Create new user
+      console.log('[Backend] Creating new user');
+      const result = await pool.query(
+        'INSERT INTO users (name, password, avatar, phone_number, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, phone_number, avatar, rating',
+        [registration.name, hashedPassword, avatar, formattedNumber, true]
+      );
+
+      const user = result.rows[0];
+      console.log('[Backend] User created:', JSON.stringify(user, null, 2));
+
+      // Remove pending registration
+      pendingRegistrations.delete(formattedNumber);
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: user.id },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      const response = {
+        success: true,
+        message: 'Registration successful',
+        user: {
+          id: user.id,
+          name: user.name,
+          phone_number: user.phone_number,
+          avatar: user.avatar,
+          rating: user.rating
+        },
+        token
+      };
+      console.log('[Backend] Verification response:', JSON.stringify(response, null, 2));
+      res.json(response);
+    } else {
+      console.log('[Backend] Invalid verification code');
+      res.status(400).json({ 
+        success: false, 
+        error: 'Invalid verification code',
+        status: verificationCheck.status
+      });
     }
+  } catch (error) {
+    console.error('[Backend] Error verifying OTP:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to verify OTP',
+      details: error.message 
+    });
+  }
 });
 
 // Test database connection

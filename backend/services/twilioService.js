@@ -10,13 +10,19 @@ const twilioService = {
     // Send OTP
     async sendOTP(phoneNumber) {
         try {
+            console.log('[TwilioService] Sending OTP to:', phoneNumber);
+            
             // Format phone number to E.164 format
             const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+            console.log('[TwilioService] Formatted phone number:', formattedNumber);
             
             // Send verification code
+            console.log('[TwilioService] Using service SID:', process.env.TWILIO_VERIFY_SERVICE_SID);
             const verification = await twilioClient.verify.v2
                 .services(process.env.TWILIO_VERIFY_SERVICE_SID)
                 .verifications.create({ to: formattedNumber, channel: 'sms' });
+
+            console.log('[TwilioService] Verification response:', JSON.stringify(verification, null, 2));
 
             return {
                 success: true,
@@ -24,7 +30,7 @@ const twilioService = {
                 status: verification.status
             };
         } catch (error) {
-            console.error('Error sending OTP:', error);
+            console.error('[TwilioService] Error sending OTP:', error);
             return {
                 success: false,
                 message: 'Failed to send OTP',
@@ -36,10 +42,13 @@ const twilioService = {
     // Verify OTP
     async verifyOTP(phoneNumber, otpCode) {
         try {
+            console.log('[TwilioService] Verifying OTP for:', phoneNumber);
+            console.log('[TwilioService] OTP code:', otpCode);
+            
             // Format phone number to E.164 format
             const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+            console.log('[TwilioService] Formatted phone number:', formattedNumber);
             
-            console.log('[TwilioService] Verifying OTP for:', formattedNumber);
             console.log('[TwilioService] Using service SID:', process.env.TWILIO_VERIFY_SERVICE_SID);
             
             // Verify the code
@@ -50,7 +59,7 @@ const twilioService = {
                     code: otpCode 
                 });
 
-            console.log('[TwilioService] Verification check response:', verificationCheck);
+            console.log('[TwilioService] Verification check response:', JSON.stringify(verificationCheck, null, 2));
 
             if (verificationCheck.status === 'approved') {
                 return {
@@ -66,22 +75,6 @@ const twilioService = {
             }
         } catch (error) {
             console.error('[TwilioService] Error verifying OTP:', error);
-            console.error('[TwilioService] Error details:', {
-                code: error.code,
-                status: error.status,
-                message: error.message,
-                moreInfo: error.moreInfo
-            });
-
-            // Handle specific Twilio error codes
-            if (error.code === 20404) {
-                return {
-                    success: false,
-                    message: 'Verification code has expired or is invalid. Please request a new code.',
-                    error: error.message
-                };
-            }
-
             return {
                 success: false,
                 message: 'Failed to verify OTP',

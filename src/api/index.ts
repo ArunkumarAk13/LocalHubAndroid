@@ -62,20 +62,21 @@ export const authAPI = {
     try {
       console.log('[API] Attempting login for:', phoneNumber);
       const response = await api.post('/api/auth/login', { phone_number: phoneNumber, password });
-      console.log('[API] Login response:', response.data);
+      console.log('[API] Login response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
-      console.error("[API] Login error:", error.response || error);
-      if (error.response) {
-        return {
-          success: false,
-          message: error.response.data?.message || "Invalid credentials"
-        };
-      }
-      return {
-        success: false,
-        message: "Connection error. Please check your internet connection."
-      };
+      console.error('[API] Login error:', JSON.stringify({
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      }, null, 2));
+      throw error;
     }
   },
 
@@ -101,16 +102,14 @@ export const authAPI = {
   requestOTP: async (phoneNumber: string) => {
     try {
       console.log('[API] Requesting OTP for:', phoneNumber);
-      // Format phone number to E.164 format if not already formatted
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number:', formattedNumber);
       
       const response = await api.post('/api/auth/send-otp', { phoneNumber: formattedNumber });
-      console.log('[API] OTP request response:', response.data);
+      console.log('[API] OTP request response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
-      // Log detailed error information with proper stringification
-      const errorDetails = {
+      console.error('[API] OTP request error:', JSON.stringify({
         status: error.response?.status,
         data: error.response?.data,
         message: error.message,
@@ -120,28 +119,14 @@ export const authAPI = {
           headers: error.config?.headers,
           data: error.config?.data
         }
-      };
-      console.error("[API] OTP request error details:", JSON.stringify(errorDetails, null, 2));
-      
-      if (error.response) {
-        return {
-          success: false,
-          message: error.response.data?.message || "Failed to send OTP",
-          error: error.response.data
-        };
-      }
-      return {
-        success: false,
-        message: "Connection error. Please check your internet connection.",
-        error: error.message
-      };
+      }, null, 2));
+      throw error;
     }
   },
 
   verifyOTP: async (phoneNumber: string, otp: string) => {
     try {
       console.log('[API] Verifying OTP for:', phoneNumber);
-      // Format phone number to E.164 format if not already formatted
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number for verification:', formattedNumber);
       
@@ -149,11 +134,10 @@ export const authAPI = {
         phoneNumber: formattedNumber, 
         code: otp 
       });
-      console.log('[API] OTP verification response:', response.data);
+      console.log('[API] OTP verification response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
-      // Log detailed error information with proper stringification
-      const errorDetails = {
+      console.error('[API] OTP verification error:', JSON.stringify({
         status: error.response?.status,
         data: error.response?.data,
         message: error.message,
@@ -163,47 +147,35 @@ export const authAPI = {
           headers: error.config?.headers,
           data: error.config?.data
         }
-      };
-      console.error("[API] OTP verification error details:", JSON.stringify(errorDetails, null, 2));
-      
-      if (error.response) {
-        return {
-          success: false,
-          message: error.response.data?.message || "Invalid OTP code",
-          error: error.response.data
-        };
-      }
-      return {
-        success: false,
-        message: "Connection error. Please check your internet connection.",
-        error: error.message
-      };
+      }, null, 2));
+      throw error;
     }
   },
 
   registerWithOTP: async (name: string, phoneNumber: string, password: string, otp: string) => {
     try {
-      console.log('[API] Registering user with OTP:', { name, phoneNumber });
+      console.log('[API] Registering user with OTP:', JSON.stringify({ name, phoneNumber }, null, 2));
       const response = await api.post('/api/auth/register-with-otp', { 
         name, 
         password, 
         phone_number: phoneNumber,
         otp_code: otp
       });
-      console.log('[API] Registration response:', response.data);
+      console.log('[API] Registration response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
-      console.error("[API] Registration with OTP error:", error.response || error);
-      if (error.response) {
-        return {
-          success: false,
-          message: error.response.data?.message || "Registration failed"
-        };
-      }
-      return {
-        success: false,
-        message: "Connection error. Please check your internet connection."
-      };
+      console.error('[API] Registration with OTP error:', JSON.stringify({
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      }, null, 2));
+      throw error;
     }
   },
 
