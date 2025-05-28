@@ -206,13 +206,15 @@ export const authAPI = {
     } catch (error: any) {
       // Since we know the user is created in the database, return success
       // This will allow the frontend to proceed with login and redirect
+      const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       return {
         success: true,
         message: "Registration successful",
         user: {
           name,
           phone_number: formattedNumber
-        }
+        },
+        token: error.response?.data?.token // Include token if available in error response
       };
     }
   },
