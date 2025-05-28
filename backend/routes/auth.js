@@ -276,7 +276,29 @@ router.post('/send-otp', async (req, res) => {
 // Verify OTP
 router.post('/verify-otp', async (req, res) => {
     try {
-        const { phoneNumber, code } = req.body;
+        const { phoneNumber, code, password, confirmPassword } = req.body;
+        
+        // Validate password if provided (for new user registration)
+        if (password || confirmPassword) {
+            if (!password || !confirmPassword) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Both password and confirm password are required'
+                });
+            }
+            if (password !== confirmPassword) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Passwords do not match'
+                });
+            }
+            if (password.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Password must be at least 6 characters long'
+                });
+            }
+        }
         
         // Format phone number to E.164 format
         const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
@@ -294,14 +316,25 @@ router.post('/verify-otp', async (req, res) => {
             );
 
             if (userResult.rows.length === 0) {
+                // For new user registration, password is required
+                if (!password) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Password is required for new user registration'
+                    });
+                }
+
                 // Generate a default name using the last 4 digits of the phone number
                 const defaultName = `User${formattedNumber.slice(-4)}`;
                 const defaultAvatar = 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=';
                 
-                // Create new user with default name and avatar
+                // Hash the provided password
+                const hashedPassword = await bcrypt.hash(password, 10);
+                
+                // Create new user with default name, avatar and provided password
                 await pool.query(
-                    'INSERT INTO users (name, phone_number, avatar, created_at) VALUES ($1, $2, $3, NOW())',
-                    [defaultName, formattedNumber, defaultAvatar]
+                    'INSERT INTO users (name, phone_number, avatar, password, created_at) VALUES ($1, $2, $3, $4, NOW())',
+                    [defaultName, formattedNumber, defaultAvatar, hashedPassword]
                 );
             }
 
