@@ -348,7 +348,7 @@ router.post('/send-otp', async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   try {
     console.log('[Backend] OTP verification request received:', JSON.stringify(req.body, null, 2));
-    const { phoneNumber, code } = req.body;
+    const { phoneNumber, code, name, password } = req.body;
     
     // Format phone number to E.164 format
     const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
@@ -363,15 +363,25 @@ router.post('/verify-otp', async (req, res) => {
     console.log('[Backend] Twilio verification check response:', JSON.stringify(verificationCheck, null, 2));
 
     if (verificationCheck.status === 'approved') {
-      // Get pending registration
-      const registration = pendingRegistrations.get(formattedNumber);
-      console.log('[Backend] Pending registration:', JSON.stringify(registration, null, 2));
+      // Get pending registration or use provided registration data
+      let registration = pendingRegistrations.get(formattedNumber);
+      
+      // If no pending registration but registration data provided in request
+      if (!registration && name && password) {
+        registration = {
+          name,
+          password,
+          expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
+        };
+      }
+
+      console.log('[Backend] Registration data:', JSON.stringify(registration, null, 2));
 
       if (!registration || Date.now() > registration.expiresAt) {
-        console.log('[Backend] Registration session expired');
+        console.log('[Backend] Registration session expired or missing registration data');
         return res.status(400).json({
           success: false,
-          message: 'Registration session expired. Please start again.'
+          message: 'Registration session expired or missing registration data. Please start again.'
         });
       }
 

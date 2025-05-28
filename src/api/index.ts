@@ -129,16 +129,24 @@ export const authAPI = {
     }
   },
 
-  verifyOTP: async (phoneNumber: string, otp: string) => {
+  verifyOTP: async (phoneNumber: string, otp: string, registrationData?: { name: string; password: string }) => {
     try {
       console.log('[API] Verifying OTP for:', phoneNumber);
       const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       console.log('[API] Formatted phone number for verification:', formattedNumber);
       
-      const response = await api.post('/api/auth/verify-otp', { 
+      const requestData: any = { 
         phoneNumber: formattedNumber, 
         code: otp 
-      });
+      };
+
+      // Include registration data if provided
+      if (registrationData) {
+        requestData.name = registrationData.name;
+        requestData.password = registrationData.password;
+      }
+      
+      const response = await api.post('/api/auth/verify-otp', requestData);
       console.log('[API] OTP verification response:', JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
