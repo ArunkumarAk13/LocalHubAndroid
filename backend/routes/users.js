@@ -466,4 +466,69 @@ router.post('/onesignal-player-id', auth, async (req, res) => {
     }
 });
 
+// Test notification endpoint
+router.post('/test-notification', auth, async (req, res) => {
+    try {
+        const { type } = req.body;
+        
+        // Get user's OneSignal player ID
+        const userResult = await db.query(
+            'SELECT onesignal_player_id FROM users WHERE id = $1',
+            [req.user.id]
+        );
+
+        if (!userResult.rows[0]?.onesignal_player_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'No OneSignal player ID found for this user'
+            });
+        }
+
+        let title, message;
+        switch(type) {
+            case 'chat':
+                title = 'Test Chat Message';
+                message = 'This is a test chat notification';
+                await notificationService.sendNotification(
+                    req.user.id,
+                    title,
+                    message,
+                    'chat',
+                    'test-chat-id'
+                );
+                break;
+            case 'category':
+                title = 'Test Category Notification';
+                message = 'This is a test category notification';
+                await notificationService.sendNotification(
+                    req.user.id,
+                    title,
+                    message,
+                    'notification'
+                );
+                break;
+            default:
+                title = 'Test Notification';
+                message = 'This is a test notification';
+                await notificationService.sendNotification(
+                    req.user.id,
+                    title,
+                    message,
+                    'notification'
+                );
+        }
+
+        res.json({
+            success: true,
+            message: 'Test notification sent successfully'
+        });
+    } catch (error) {
+        console.error('Error sending test notification:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send test notification'
+        });
+    }
+});
+
 module.exports = router;
