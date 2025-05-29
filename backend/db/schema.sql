@@ -4,9 +4,11 @@
 -- Users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
+    phone VARCHAR(20),
+    onesignal_player_id VARCHAR(255),
     avatar VARCHAR(255) DEFAULT 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
     rating DECIMAL(3, 1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -117,3 +119,6 @@ INSERT INTO categories (name) VALUES
 CREATE INDEX idx_posts_category ON posts(category_id);
 CREATE INDEX idx_posts_user ON posts(user_id);
 CREATE INDEX idx_ratings_post ON ratings(post_id);
+
+-- Add OneSignal player ID column to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS onesignal_player_id VARCHAR(255);

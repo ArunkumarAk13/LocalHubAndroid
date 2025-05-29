@@ -3,6 +3,7 @@ const db = require('../db');
 const auth = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
 const cloudinary = require('../config/cloudinary');
+const notificationService = require('../services/notificationService');
 
 const router = express.Router();
 

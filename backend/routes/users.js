@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { avatarUpload } = require('../config/cloudinary');
 const fs = require('fs');
 const path = require('path');
+const notificationService = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -237,105 +238,64 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// Subscribe to category notifications
-router.post('/subscribe/category', auth, async (req, res, next) => {
-  try {
-    const { categoryName } = req.body;
-    console.log("Backend: Subscribe request for category:", categoryName, "by user:", req.user.id);
-    
-    if (!categoryName) {
-      return res.status(400).json({
-        success: false,
-        message: 'Category name is required'
-      });
-    }
-    
-    // Get category ID
-    const categoryResult = await db.query(
-      'SELECT id FROM categories WHERE name = $1',
-      [categoryName]
-    );
-    
-    let categoryId;
-    
-    if (categoryResult.rows.length === 0) {
-      // If category doesn't exist, create it
-      console.log("Backend: Creating new category:", categoryName);
-      try {
-        const newCategoryResult = await db.query(
-          'INSERT INTO categories (name) VALUES ($1) RETURNING id',
-          [categoryName]
+// Subscribe to category
+router.post('/subscribe/category', auth, async (req, res) => {
+    try {
+        const { categoryName } = req.body;
+        
+        // Get category ID
+        const categoryResult = await db.query(
+            'SELECT id FROM categories WHERE name = $1',
+            [categoryName]
         );
         
-        categoryId = newCategoryResult.rows[0].id;
-        console.log("Backend: Created new category with ID:", categoryId);
-      } catch (err) {
-        console.error("Error creating category:", err);
-        // If there's a unique constraint error, the category might have been created by another request
-        // Try to get the category ID again
-        const retryResult = await db.query(
-          'SELECT id FROM categories WHERE name = $1',
-          [categoryName]
-        );
-        
-        if (retryResult.rows.length === 0) {
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to create category'
-          });
+        if (categoryResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Category not found'
+            });
         }
         
-        categoryId = retryResult.rows[0].id;
-        console.log("Backend: Retrieved existing category with ID:", categoryId);
-      }
-    } else {
-      categoryId = categoryResult.rows[0].id;
-      console.log("Backend: Found existing category with ID:", categoryId);
+        const categoryId = categoryResult.rows[0].id;
+        
+        // Check if already subscribed
+        const subscriptionCheck = await db.query(
+            'SELECT * FROM category_subscriptions WHERE user_id = $1 AND category_id = $2',
+            [req.user.id, categoryId]
+        );
+        
+        if (subscriptionCheck.rows.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Already subscribed to this category'
+            });
+        }
+        
+        // Add subscription
+        await db.query(
+            'INSERT INTO category_subscriptions (user_id, category_id) VALUES ($1, $2)',
+            [req.user.id, categoryId]
+        );
+        
+        // Send notification about subscription
+        await notificationService.sendNotification(
+            req.user.id,
+            `Category Subscription: ${categoryName}`,
+            `You are now subscribed to new posts in the ${categoryName} category. You will be notified when new items are posted in this category.`,
+            'notification'
+        );
+        
+        res.status(201).json({
+            success: true,
+            message: `Subscribed to ${categoryName} notifications`
+        });
+    } catch (error) {
+        console.error('Error subscribing to category:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to subscribe to category'
+        });
     }
-    
-    // Check if already subscribed
-    const subscriptionCheck = await db.query(
-      'SELECT * FROM category_subscriptions WHERE user_id = $1 AND category_id = $2',
-      [req.user.id, categoryId]
-    );
-    
-    if (subscriptionCheck.rows.length > 0) {
-      console.log("Backend: User already subscribed to this category");
-      return res.status(400).json({
-        success: false,
-        message: 'Already subscribed to this category'
-      });
-    }
-    
-    // Add subscription
-    console.log("Backend: Adding subscription for user:", req.user.id, "and category:", categoryId);
-    await db.query(
-      'INSERT INTO category_subscriptions (user_id, category_id) VALUES ($1, $2)',
-      [req.user.id, categoryId]
-    );
-    
-    // Create notification for subscription
-    await db.query(`
-      INSERT INTO notifications (user_id, title, description, post_id)
-      VALUES ($1, $2, $3, NULL)
-    `, [
-      req.user.id, 
-      `Category Subscription: ${categoryName}`, 
-      `You are now subscribed to new posts in the ${categoryName} category. You will be notified when new items are posted in this category.`
-    ]);
-    
-    console.log("Backend: Successfully subscribed to category");
-    res.status(201).json({
-      success: true,
-      message: `Subscribed to ${categoryName} notifications`
-    });
-  } catch (error) {
-    console.error("Backend error in subscribe category:", error);
-    res.status(500).json({
-      success: false,
-      message: `Failed to update subscription: ${error.message}`
-    });
-  }
 });
 
 // Unsubscribe from category notifications
@@ -474,6 +434,36 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
   } catch (error) {
     next(error);
   }
+});
+
+// Update OneSignal player ID
+router.post('/onesignal-player-id', auth, async (req, res) => {
+    try {
+        const { playerId } = req.body;
+        
+        if (!playerId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Player ID is required'
+            });
+        }
+
+        await db.query(
+            'UPDATE users SET onesignal_player_id = $1 WHERE id = $2',
+            [playerId, req.user.id]
+        );
+
+        res.json({
+            success: true,
+            message: 'OneSignal player ID updated successfully'
+        });
+    } catch (error) {
+        console.error('Error updating OneSignal player ID:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update OneSignal player ID'
+        });
+    }
 });
 
 module.exports = router;
