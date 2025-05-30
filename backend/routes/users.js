@@ -437,7 +437,7 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
 });
 
 // Update OneSignal player ID
-router.post('/api/users/onesignal-player-id', auth, async (req, res) => {
+router.post('/onesignal-player-id', auth, async (req, res) => {
   try {
     const { playerId } = req.body;
     console.log("Backend: Updating OneSignal player ID for user:", req.user.id, "playerId:", playerId);
