@@ -83,8 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       try {
         console.log('[Frontend] Sending push token to server...');
-        // Send the push token to your server
-        const response = await usersAPI.post('/onesignal-player-id', { playerId: pushToken });
+        // Send the push token to your server using the new method
+        const response = await usersAPI.updateOneSignalPlayerId(pushToken);
         console.log('[Frontend] Server response:', response);
         
         if (response.success) {
@@ -97,6 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else {
           console.error('[Frontend] Failed to update push token:', response.message);
+          if (response.error) {
+            console.error('[Frontend] Error details:', response.error);
+          }
         }
       } catch (error) {
         console.error('[Frontend] Error updating push token:', error);

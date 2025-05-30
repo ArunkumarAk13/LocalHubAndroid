@@ -605,7 +605,29 @@ export const usersAPI = {
         }
       };
     }
-  }
+  },
+
+  updateOneSignalPlayerId: async (playerId: string) => {
+    try {
+      const response = await api.post('/api/users/onesignal-player-id', { playerId });
+      return {
+        success: true,
+        data: response.data,
+        message: response.data.message
+      };
+    } catch (error: any) {
+      console.error("Error updating OneSignal player ID:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to update OneSignal player ID",
+        error: {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        }
+      };
+    }
+  },
 };
 
 // Chats API

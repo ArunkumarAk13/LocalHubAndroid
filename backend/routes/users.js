@@ -437,57 +437,52 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
 });
 
 // Update OneSignal player ID
-router.post('/onesignal-player-id', auth, async (req, res) => {
-    try {
-        const { playerId } = req.body;
-        console.log('[Backend] Received request to update OneSignal player ID:', {
-            userId: req.user.id,
-            playerId: playerId
-        });
-        
-        if (!playerId) {
-            console.log('[Backend] Error: Player ID is missing');
-            return res.status(400).json({
-                success: false,
-                message: 'Player ID is required'
-            });
-        }
-
-        // First check if user exists
-        const userCheck = await db.query(
-            'SELECT id FROM users WHERE id = $1',
-            [req.user.id]
-        );
-
-        if (userCheck.rows.length === 0) {
-            console.log('[Backend] Error: User not found:', req.user.id);
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        console.log('[Backend] Updating OneSignal player ID in database...');
-        const result = await db.query(
-            'UPDATE users SET onesignal_player_id = $1 WHERE id = $2 RETURNING onesignal_player_id',
-            [playerId, req.user.id]
-        );
-
-        console.log('[Backend] Update result:', result.rows[0]);
-
-        res.json({
-            success: true,
-            message: 'OneSignal player ID updated successfully',
-            playerId: result.rows[0].onesignal_player_id
-        });
-    } catch (error) {
-        console.error('[Backend] Error updating OneSignal player ID:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update OneSignal player ID',
-            error: error.message
-        });
+router.post('/api/users/onesignal-player-id', auth, async (req, res) => {
+  try {
+    const { playerId } = req.body;
+    console.log("Backend: Updating OneSignal player ID for user:", req.user.id, "playerId:", playerId);
+    
+    if (!playerId) {
+      console.log("Backend: Missing playerId in request");
+      return res.status(400).json({
+        success: false,
+        message: "Player ID is required"
+      });
     }
+
+    // Check if user exists
+    const userResult = await db.query(
+      'SELECT id FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      console.log("Backend: User not found:", req.user.id);
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Update the OneSignal player ID
+    const result = await db.query(
+      'UPDATE users SET onesignal_player_id = $1 WHERE id = $2 RETURNING id',
+      [playerId, req.user.id]
+    );
+
+    console.log("Backend: Updated OneSignal player ID for user:", req.user.id, "result:", result.rows[0]);
+    
+    res.json({
+      success: true,
+      message: "OneSignal player ID updated successfully"
+    });
+  } catch (error) {
+    console.error("Backend error updating OneSignal player ID:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update OneSignal player ID"
+    });
+  }
 });
 
 // Test notification endpoint
