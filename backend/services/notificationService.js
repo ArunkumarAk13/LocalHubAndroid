@@ -41,7 +41,7 @@ class NotificationService {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Basic ${this.ONESIGNAL_REST_API_KEY}`
+                        'Authorization': `Basic ${Buffer.from(this.ONESIGNAL_REST_API_KEY).toString('base64')}`
                     }
                 }
             );
@@ -56,6 +56,9 @@ class NotificationService {
             return response.data;
         } catch (error) {
             console.error('Error sending notification:', error);
+            if (error.response) {
+                console.error('OneSignal API error:', error.response.data);
+            }
             return false;
         }
     }

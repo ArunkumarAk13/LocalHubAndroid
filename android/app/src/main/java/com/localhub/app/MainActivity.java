@@ -40,14 +40,14 @@ public class MainActivity extends BridgeActivity {
                 Log.d(TAG, "Notification permission changed: " + permission);
                 if (permission) {
                     // Get the push token when permission is granted
-                    String pushToken = OneSignal.getUser().getPushSubscription().getToken();
-                    if (pushToken != null) {
-                        Log.d(TAG, "Got push token: " + pushToken);
+                    String playerId = OneSignal.getUser().getPushSubscription().getId();
+                    if (playerId != null) {
+                        Log.d(TAG, "Got OneSignal player ID: " + playerId);
                         
                         // Store the token in SharedPreferences for later use
                         getSharedPreferences("OneSignal", MODE_PRIVATE)
                             .edit()
-                            .putString("pushToken", pushToken)
+                            .putString("playerId", playerId)
                             .apply();
                         
                         // Send token to server via JavaScript
@@ -55,14 +55,14 @@ public class MainActivity extends BridgeActivity {
                             if (bridge != null && bridge.getWebView() != null) {
                                 String jsCode = String.format(
                                     "window.dispatchEvent(new CustomEvent('pushTokenReceived', { detail: '%s' }));",
-                                    pushToken
+                                    playerId
                                 );
                                 Log.d(TAG, "Executing JS: " + jsCode);
                                 bridge.getWebView().evaluateJavascript(jsCode, null);
                             }
                         });
                     } else {
-                        Log.e(TAG, "Push token is null after permission granted");
+                        Log.e(TAG, "OneSignal player ID is null after permission granted");
                     }
                 }
             }
@@ -106,14 +106,14 @@ public class MainActivity extends BridgeActivity {
                         Log.d(TAG, "Notification permission request result: " + result);
                         if ((Boolean) result) {
                             // Get and send the push token after permission is granted
-                            String pushToken = OneSignal.getUser().getPushSubscription().getToken();
-                            if (pushToken != null) {
-                                Log.d(TAG, "Got push token after login: " + pushToken);
+                            String playerId = OneSignal.getUser().getPushSubscription().getId();
+                            if (playerId != null) {
+                                Log.d(TAG, "Got OneSignal player ID after login: " + playerId);
                                 runOnUiThread(() -> {
                                     if (bridge != null && bridge.getWebView() != null) {
                                         String jsCode = String.format(
                                             "window.dispatchEvent(new CustomEvent('pushTokenReceived', { detail: '%s' }));",
-                                            pushToken
+                                            playerId
                                         );
                                         Log.d(TAG, "Executing JS after login: " + jsCode);
                                         bridge.getWebView().evaluateJavascript(jsCode, null);
@@ -141,14 +141,14 @@ public class MainActivity extends BridgeActivity {
         Log.d(TAG, "App resumed");
         
         // Check and send push token on resume
-        String pushToken = OneSignal.getUser().getPushSubscription().getToken();
-        if (pushToken != null) {
-            Log.d(TAG, "Got push token on resume: " + pushToken);
+        String playerId = OneSignal.getUser().getPushSubscription().getId();
+        if (playerId != null) {
+            Log.d(TAG, "Got OneSignal player ID on resume: " + playerId);
             runOnUiThread(() -> {
                 if (bridge != null && bridge.getWebView() != null) {
                     String jsCode = String.format(
                         "window.dispatchEvent(new CustomEvent('pushTokenReceived', { detail: '%s' }));",
-                        pushToken
+                        playerId
                     );
                     Log.d(TAG, "Executing JS on resume: " + jsCode);
                     bridge.getWebView().evaluateJavascript(jsCode, null);
