@@ -562,6 +562,50 @@ export const usersAPI = {
       throw error;
     }
   },
+
+  post: async (url: string, data: any) => {
+    try {
+      const response = await api.post(url, data);
+      return {
+        success: true,
+        data: response.data,
+        message: response.data.message
+      };
+    } catch (error: any) {
+      // Create a detailed error object
+      const errorDetails = {
+        url,
+        data,
+        error: {
+          message: error.message,
+          response: {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+          },
+          request: {
+            headers: error.config?.headers,
+            method: error.config?.method,
+            url: error.config?.url
+          }
+        }
+      };
+
+      // Log the stringified error details
+      console.error("Error making POST request:", JSON.stringify(errorDetails, null, 2));
+      
+      // Return a more detailed error response
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || "Failed to make request",
+        error: {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        }
+      };
+    }
+  }
 };
 
 // Chats API

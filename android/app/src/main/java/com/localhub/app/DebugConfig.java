@@ -3,6 +3,8 @@ package com.localhub.app;
 import android.content.Context;
 import android.util.Log;
 import android.os.Build;
+import com.onesignal.debug.LogLevel;
+import com.onesignal.OneSignal;
 
 public class DebugConfig {
     private static final String TAG = "LocalHub";
@@ -16,5 +18,10 @@ public class DebugConfig {
         } catch (Exception e) {
             Log.e(TAG, "Error enabling debug logging", e);
         }
+    }
+
+    public static void setupOneSignalDebug() {
+        // Enable verbose logging for debugging (remove in production)
+        OneSignal.getDebug().setLogLevel(LogLevel.VERBOSE);
     }
 } 

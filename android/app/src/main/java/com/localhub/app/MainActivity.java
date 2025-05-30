@@ -3,25 +3,158 @@ package com.localhub.app;
 import android.os.Bundle;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
+import com.onesignal.OneSignal;
+import com.onesignal.debug.LogLevel;
+import com.onesignal.notifications.INotificationClickListener;
+import com.onesignal.notifications.INotificationClickEvent;
+import com.onesignal.notifications.INotificationLifecycleListener;
+import com.onesignal.notifications.INotificationWillDisplayEvent;
+import com.onesignal.notifications.IPermissionObserver;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.JavascriptInterface;
+import org.json.JSONObject;
+import kotlin.coroutines.Continuation;
+import kotlin.coroutines.CoroutineContext;
+import kotlinx.coroutines.Dispatchers;
+import androidx.annotation.NonNull;
 
 public class MainActivity extends BridgeActivity {
-    private static final String TAG = "LocalHub";
+    private static final String ONESIGNAL_APP_ID = "43bbd100-da0d-47d0-bee3-986f6e393f03";
+    private static final String TAG = "MainActivity";
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Enable verbose OneSignal logging
+        OneSignal.getDebug().setLogLevel(LogLevel.VERBOSE);
+        
+        // Initialize OneSignal
+        OneSignal.initWithContext(this, ONESIGNAL_APP_ID);
+        
+        // Set up permission observer
+        OneSignal.getNotifications().addPermissionObserver(new IPermissionObserver() {
+            @Override
+            public void onNotificationPermissionChange(boolean permission) {
+                Log.d(TAG, "Notification permission changed: " + permission);
+                if (permission) {
+                    // Get the push token when permission is granted
+                    String pushToken = OneSignal.getUser().getPushSubscription().getToken();
+                    if (pushToken != null) {
+                        Log.d(TAG, "Got push token: " + pushToken);
+                        
+                        // Store the token in SharedPreferences for later use
+                        getSharedPreferences("OneSignal", MODE_PRIVATE)
+                            .edit()
+                            .putString("pushToken", pushToken)
+                            .apply();
+                        
+                        // Send token to server via JavaScript
+                        runOnUiThread(() -> {
+                            if (bridge != null && bridge.getWebView() != null) {
+                                String jsCode = String.format(
+                                    "window.dispatchEvent(new CustomEvent('pushTokenReceived', { detail: '%s' }));",
+                                    pushToken
+                                );
+                                Log.d(TAG, "Executing JS: " + jsCode);
+                                bridge.getWebView().evaluateJavascript(jsCode, null);
+                            }
+                        });
+                    } else {
+                        Log.e(TAG, "Push token is null after permission granted");
+                    }
+                }
+            }
+        });
+        
+        // Set up notification click handler
+        OneSignal.getNotifications().addClickListener(new INotificationClickListener() {
+            @Override
+            public void onClick(INotificationClickEvent event) {
+                Log.d(TAG, "Notification clicked: " + event.getNotification().getTitle());
+            }
+        });
+        
+        // Set up foreground notification lifecycle listener
+        OneSignal.getNotifications().addForegroundLifecycleListener(new INotificationLifecycleListener() {
+            @Override
+            public void onWillDisplay(INotificationWillDisplayEvent event) {
+                Log.d(TAG, "Notification will display in foreground: " + event.getNotification().getTitle());
+            }
+        });
+        
+        // Add JavaScript interface for external user ID
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().addJavascriptInterface(new WebAppInterface(), "MainActivity");
+        }
+    }
+    
+    // JavaScript interface class
+    private class WebAppInterface {
+        @JavascriptInterface
+        public void setExternalUserId(String userId) {
+            if (userId != null && !userId.isEmpty()) {
+                String secureUserId = "user_" + userId;
+                Log.d(TAG, "Setting external user ID: " + secureUserId);
+                OneSignal.login(secureUserId);
+                
+                // Request notification permission after login
+                OneSignal.getNotifications().requestPermission(true, new Continuation<Boolean>() {
+                    @Override
+                    public void resumeWith(@NonNull Object result) {
+                        Log.d(TAG, "Notification permission request result: " + result);
+                        if ((Boolean) result) {
+                            // Get and send the push token after permission is granted
+                            String pushToken = OneSignal.getUser().getPushSubscription().getToken();
+                            if (pushToken != null) {
+                                Log.d(TAG, "Got push token after login: " + pushToken);
+                                runOnUiThread(() -> {
+                                    if (bridge != null && bridge.getWebView() != null) {
+                                        String jsCode = String.format(
+                                            "window.dispatchEvent(new CustomEvent('pushTokenReceived', { detail: '%s' }));",
+                                            pushToken
+                                        );
+                                        Log.d(TAG, "Executing JS after login: " + jsCode);
+                                        bridge.getWebView().evaluateJavascript(jsCode, null);
+                                    }
+                                });
+                            }
+                        }
+                    }
 
-        // Add logging for debugging
-        Log.d(TAG, "LocalHub app started");
-
-        // Enable debug logging
-        DebugConfig.enableDebugLogging();
+                    @Override
+                    public CoroutineContext getContext() {
+                        return Dispatchers.getMain();
+                    }
+                });
+            } else {
+                Log.d(TAG, "Logging out user from OneSignal");
+                OneSignal.logout();
+            }
+        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
         Log.d(TAG, "App resumed");
+        
+        // Check and send push token on resume
+        String pushToken = OneSignal.getUser().getPushSubscription().getToken();
+        if (pushToken != null) {
+            Log.d(TAG, "Got push token on resume: " + pushToken);
+            runOnUiThread(() -> {
+                if (bridge != null && bridge.getWebView() != null) {
+                    String jsCode = String.format(
+                        "window.dispatchEvent(new CustomEvent('pushTokenReceived', { detail: '%s' }));",
+                        pushToken
+                    );
+                    Log.d(TAG, "Executing JS on resume: " + jsCode);
+                    bridge.getWebView().evaluateJavascript(jsCode, null);
+                }
+            });
+        }
     }
 
     @Override

@@ -262,6 +262,54 @@ const Profile = () => {
     return `${API_BASE_URL}${url}`;
   };
 
+  const testNotification = async (type: string) => {
+    try {
+      console.log('Sending test notification of type:', type);
+      const response = await usersAPI.post('/api/users/test-notification', { type });
+      
+      if (response.success) {
+        toast.success(response.message || 'Test notification sent!');
+      } else {
+        // Create detailed error object
+        const errorDetails = {
+          type,
+          response: {
+            message: response.message,
+            error: response.error
+          }
+        };
+        
+        // Log stringified error details
+        console.error('Test notification error:', JSON.stringify(errorDetails, null, 2));
+        
+        // Display a user-friendly error message
+        const errorMessage = response.error?.data?.message || 
+                           response.message || 
+                           'Failed to send test notification';
+        toast.error(errorMessage);
+      }
+    } catch (error: any) {
+      // Create detailed error object
+      const errorDetails = {
+        type,
+        error: {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        }
+      };
+      
+      // Log stringified error details
+      console.error('Error sending test notification:', JSON.stringify(errorDetails, null, 2));
+      
+      // Display a user-friendly error message
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to send test notification';
+      toast.error(errorMessage);
+    }
+  };
+
   return (
     <div className="pb-20">
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -498,6 +546,30 @@ const Profile = () => {
       </Dialog>
       
       <Navigation />
+
+      <div className="mt-4 space-y-2">
+        <h3 className="text-lg font-semibold">Test Notifications</h3>
+        <div className="flex flex-wrap gap-2">
+          <Button 
+            onClick={() => testNotification('basic')}
+            variant="outline"
+          >
+            Test Basic Notification
+          </Button>
+          <Button 
+            onClick={() => testNotification('chat')}
+            variant="outline"
+          >
+            Test Chat Notification
+          </Button>
+          <Button 
+            onClick={() => testNotification('category')}
+            variant="outline"
+          >
+            Test Category Notification
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

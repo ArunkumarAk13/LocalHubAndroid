@@ -2,6 +2,8 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { authAPI } from '../api';
+import { Capacitor } from '@capacitor/core';
+import { usersAPI } from '../api';
 
 // Define the User type
 export interface User {
@@ -44,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const response = await authAPI.getCurrentUser();
           if (response.success) {
             setUser(response.user);
+            // Set OneSignal external user ID if on native platform
+            if (Capacitor.isNativePlatform() && response.user.id) {
+              // @ts-ignore - OneSignal is injected by the native platform
+              if (window.MainActivity) {
+                // @ts-ignore
+                window.MainActivity.setExternalUserId(response.user.id.toString());
+              }
+            }
           } else {
             // If token is invalid, clear it
             localStorage.removeItem('token');
@@ -65,34 +75,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, []);
 
+  // Listen for push token from OneSignal
+  useEffect(() => {
+    const handlePushToken = async (event: CustomEvent) => {
+      const pushToken = event.detail;
+      console.log('[Frontend] Received push token event:', pushToken);
+      
+      try {
+        console.log('[Frontend] Sending push token to server...');
+        // Send the push token to your server
+        const response = await usersAPI.post('/onesignal-player-id', { playerId: pushToken });
+        console.log('[Frontend] Server response:', response);
+        
+        if (response.success) {
+          console.log('[Frontend] Push token updated successfully');
+          // Refresh user data to get updated OneSignal ID
+          const userResponse = await authAPI.getCurrentUser();
+          if (userResponse.success) {
+            setUser(userResponse.user);
+            console.log('[Frontend] User data refreshed with new OneSignal ID');
+          }
+        } else {
+          console.error('[Frontend] Failed to update push token:', response.message);
+        }
+      } catch (error) {
+        console.error('[Frontend] Error updating push token:', error);
+        if (error.response) {
+          console.error('[Frontend] Error response:', error.response.data);
+        }
+      }
+    };
+
+    console.log('[Frontend] Setting up pushTokenReceived event listener');
+    // Add event listener
+    window.addEventListener('pushTokenReceived', handlePushToken as EventListener);
+
+    // Cleanup
+    return () => {
+      console.log('[Frontend] Cleaning up pushTokenReceived event listener');
+      window.removeEventListener('pushTokenReceived', handlePushToken as EventListener);
+    };
+  }, []);
+
   // Login function
   const login = async (phoneNumber: string, password: string) => {
     try {
-      // Clear previous user data first
-      localStorage.removeItem('subscribedCategories');
-      localStorage.removeItem('userNotifications');
-      
       const response = await authAPI.login(phoneNumber, password);
-      
       if (response.success) {
-        // Set user data first
-        setUser(response.user);
-        // Then set token
         localStorage.setItem('token', response.token);
-        toast.success('Login successful!');
-        // Use navigate directly instead of setTimeout
-        navigate('/', { replace: true });
-        return true;
+        setUser(response.user);
+        
+        // Set OneSignal external user ID
+        if (Capacitor.isNativePlatform()) {
+          try {
+            // @ts-ignore
+            window.MainActivity.setExternalUserId(response.user.id.toString());
+          } catch (error) {
+            console.error('Error setting OneSignal external user ID:', error);
+          }
+        }
+        
+        return { success: true };
       } else {
-        // Don't use toast here as it might disappear too quickly
-        console.error('Login failed:', response.message || 'Invalid phone number or password');
-        return false;
+        return { success: false, message: response.message };
       }
     } catch (error: any) {
-      // Don't use toast here as it might disappear too quickly
       console.error('Login error:', error);
-      // Return false rather than throwing an error
-      return false;
+      return { 
+        success: false, 
+        message: error.response?.data?.message || 'Failed to login. Please try again.' 
+      };
     }
   };
 
@@ -108,6 +160,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.success) {
         setUser(response.user);
         localStorage.setItem('token', response.token);
+        
+        // Set OneSignal external user ID if on native platform
+        if (Capacitor.isNativePlatform() && response.user.id) {
+          // @ts-ignore - OneSignal is injected by the native platform
+          if (window.MainActivity) {
+            // @ts-ignore
+            window.MainActivity.setExternalUserId(response.user.id.toString());
+          }
+        }
+        
         toast.success('Registration successful!');
         navigate('/');
         return true;
@@ -129,6 +191,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('subscribedCategories');
     localStorage.removeItem('userNotifications');
+    
+    // Clear OneSignal external user ID if on native platform
+    if (Capacitor.isNativePlatform()) {
+      // @ts-ignore - OneSignal is injected by the native platform
+      if (window.MainActivity) {
+        // @ts-ignore
+        window.MainActivity.setExternalUserId(null);
+      }
+    }
     
     toast.success('You have been logged out');
     navigate('/login');
