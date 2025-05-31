@@ -100,13 +100,17 @@ class NotificationService {
         }
     }
 
-    async sendCategoryNotification(userId, categoryName, postTitle) {
+    async sendCategoryNotification(userId, categoryName, postTitle, postId = null) {
         try {
+            const title = `New Post in ${categoryName}`;
+            const message = `${postTitle}\n\nA new item has been posted in the ${categoryName} category.`;
+            
             return await this.sendNotification(
                 userId,
-                `New post in ${categoryName}`,
-                postTitle,
-                'notification'
+                title,
+                message,
+                'category_post',
+                postId
             );
         } catch (error) {
             console.error('Error sending category notification:', error);

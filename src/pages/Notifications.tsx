@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usersAPI } from '@/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { Bell, FileText } from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -32,10 +33,7 @@ const Notifications: React.FC = () => {
 
     const loadNotifications = async () => {
       try {
-        // First mark all notifications as read
         await usersAPI.markAllNotificationsAsRead();
-        
-        // Then fetch the updated notifications
         const response = await usersAPI.getNotifications();
         if (response.success) {
           setNotifications(response.notifications || []);
@@ -53,100 +51,107 @@ const Notifications: React.FC = () => {
     loadNotifications();
   }, [isAuthenticated, navigate]);
 
-  const markNotificationAsRead = async (notificationId: string) => {
+  const handleNotificationClick = async (notification: Notification) => {
     try {
-      const response = await usersAPI.markNotificationAsRead(notificationId);
-      if (response.success) {
-        setNotifications(prev =>
-          prev.map(notification =>
-            notification.id === notificationId
-              ? { ...notification, is_read: true }
-              : notification
-          )
-        );
+      // Mark as read
+      await usersAPI.markNotificationAsRead(notification.id);
+      
+      // Update local state
+      setNotifications(prev =>
+        prev.map(n =>
+          n.id === notification.id ? { ...n, is_read: true } : n
+        )
+      );
+
+      // Navigate to post if it exists
+      if (notification.post_id) {
+        navigate(`/post/${notification.post_id}`);
       }
     } catch (error) {
-      console.error('Error marking notification as read:', error);
-      toast.error('Failed to mark notification as read');
+      console.error('Error handling notification click:', error);
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    markNotificationAsRead(notification.id);
-  };
+  const formatNotificationTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
 
-  const handleViewPostClick = (e: React.MouseEvent, postId: string) => {
-    e.stopPropagation(); // Prevent the card click handler from firing
-    navigate(`/post/${postId}`);
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes}m ago`;
+    return 'Just now';
   };
 
   const getNotificationIcon = (notification: Notification) => {
     if (notification.category) {
-      return '📋'; // Category subscription notification
-    } else if (notification.post_id) {
-      return '📝'; // Post-related notification
+      return <Bell className="h-5 w-5 text-primary" />;
     }
-    return '🔔'; // Default notification
+    return <FileText className="h-5 w-5 text-primary" />;
   };
 
   return (
-    <div className="h-[90vh] bg-background overflow-y-auto">
-      <div className="w-full max-w-5xl mx-auto">
+    <div className="min-h-screen bg-background">
+      <Navigation />
+      <div className="container max-w-4xl mx-auto py-6 px-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl font-bold">Notifications</CardTitle>
+            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+              <Bell className="h-6 w-6" />
+              Notifications
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="text-center py-4">Loading notifications...</div>
             ) : notifications.length > 0 ? (
               <div className="space-y-4">
-                {notifications.map(notification => (
+                {notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                      notification.is_read
-                        ? 'bg-secondary/50 hover:bg-secondary/70'
-                        : 'bg-secondary hover:bg-secondary/80'
-                    }`}
+                    className={`p-4 rounded-lg border cursor-pointer transition-colors
+                      ${notification.is_read ? 'bg-background' : 'bg-accent/5'}
+                      hover:bg-accent/10`}
                     onClick={() => handleNotificationClick(notification)}
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-start space-x-3">
-                        <span className="text-xl mt-1">{getNotificationIcon(notification)}</span>
-                        <div>
-                          <h3 className={`font-medium ${!notification.is_read ? 'font-bold' : ''}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        {getNotificationIcon(notification)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-medium">
                             {notification.title}
                           </h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {notification.description}
-                          </p>
-                          {notification.category && (
-                            <Badge variant="secondary" className="mt-2">
-                              {notification.category}
-                            </Badge>
-                          )}
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {formatNotificationTime(notification.created_at)}
+                          </span>
                         </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {notification.description}
+                        </p>
+                        {notification.category && (
+                          <Badge variant="outline" className="mt-2">
+                            {notification.category}
+                          </Badge>
+                        )}
+                        {notification.post_id && (
+                          <Button
+                            variant="link"
+                            className="mt-2 h-auto p-0 text-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/post/${notification.post_id}`);
+                            }}
+                          >
+                            View Post →
+                          </Button>
+                        )}
                       </div>
-                      {!notification.is_read && (
-                        <Badge variant="default" className="ml-2">
-                          New
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-center mt-3">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(notification.created_at).toLocaleDateString()}
-                      </span>
-                      {notification.post_id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleViewPostClick(e, notification.post_id!)}
-                        >
-                          View Post
-                        </Button>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -159,7 +164,6 @@ const Notifications: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-      <Navigation />
     </div>
   );
 };

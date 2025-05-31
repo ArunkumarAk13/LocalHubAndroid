@@ -249,23 +249,34 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     
     // Check for subscribed users to notify
     const subscribedUsersResult = await db.query(`
-      SELECT u.id
+      SELECT 
+        u.id,
+        u.onesignal_player_id
       FROM users u
       JOIN category_subscriptions cs ON u.id = cs.user_id
-      WHERE cs.category_id = $1 AND u.id != $2
+      WHERE cs.category_id = $1 AND u.id != $2 AND u.onesignal_player_id IS NOT NULL
     `, [categoryId, req.user.id]);
     
     // Create notifications for subscribed users
     for (const user of subscribedUsersResult.rows) {
+      // Add to notifications table
       await db.query(`
         INSERT INTO notifications (user_id, title, description, post_id)
         VALUES ($1, $2, $3, $4)
       `, [
         user.id,
-        `New post in ${category}`,
-        title,
+        `New Post in ${category}`,
+        `${title}\n\nA new item has been posted in the ${category} category.`,
         postId
       ]);
+
+      // Send push notification
+      await notificationService.sendCategoryNotification(
+        user.id,
+        category,
+        title,
+        postId
+      );
     }
     
     await db.query('COMMIT');
