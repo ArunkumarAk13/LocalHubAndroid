@@ -36,7 +36,9 @@ router.post('/send-email-otp', async (req, res) => {
       name: req.body.name,
       phoneNumber: req.body.phoneNumber ? 'provided' : 'not provided'
     },
-    headers: req.headers
+    headers: req.headers,
+    hasBrevoKey: !!process.env.BREVO_API_KEY,
+    hasBrevoSender: !!process.env.BREVO_SENDER_EMAIL
   });
 
   try {
@@ -80,7 +82,7 @@ router.post('/send-email-otp', async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
-    console.log('Generated OTP for', email, ':', otp);
+    console.log('Generated OTP for', email);
     
     // Store verification data with expiry
     pendingVerifications.set(email, {
@@ -107,37 +109,56 @@ router.post('/send-email-otp', async (req, res) => {
       console.error('Error in sendOTPEmail:', {
         error: emailError,
         message: emailError.message,
+        code: emailError.code,
         stack: emailError.stack
       });
       
       // Clear the pending verification since email failed
       pendingVerifications.delete(email);
       
-      // Check for specific error types
-      if (emailError.message === 'BREVO_API_KEY is not configured' || 
-          emailError.message === 'BREVO_SENDER_EMAIL is not configured') {
-        console.error('Brevo configuration error:', emailError.message);
-        return res.status(500).json({
-          success: false,
-          message: 'Email service is not properly configured'
-        });
+      // Handle specific error codes
+      switch (emailError.code) {
+        case 'MISSING_API_KEY':
+        case 'INVALID_API_KEY':
+          return res.status(500).json({
+            success: false,
+            message: 'Email service authentication failed. Please contact support.',
+            code: emailError.code
+          });
+          
+        case 'MISSING_SENDER_EMAIL':
+          return res.status(500).json({
+            success: false,
+            message: 'Email service configuration error. Please contact support.',
+            code: emailError.code
+          });
+          
+        case 'NETWORK_ERROR':
+          return res.status(503).json({
+            success: false,
+            message: 'Unable to connect to email service. Please try again later.',
+            code: emailError.code
+          });
+          
+        default:
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to send verification code. Please try again later.',
+            code: emailError.code || 'UNKNOWN_ERROR'
+          });
       }
-      
-      // Handle other email sending errors
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send verification code. Please try again later.'
-      });
     }
   } catch (error) {
     console.error('Error in /send-email-otp route:', {
       error: error,
       message: error.message,
+      code: error.code,
       stack: error.stack
     });
     res.status(500).json({
       success: false,
-      message: 'An unexpected error occurred'
+      message: 'An unexpected error occurred',
+      code: error.code || 'UNKNOWN_ERROR'
     });
   }
 });

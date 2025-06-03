@@ -4,17 +4,29 @@ const defaultClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = defaultClient.authentications['api-key'];
 
 // Log Brevo configuration
-console.log('Initializing Brevo service with configuration:', {
+const brevoConfig = {
   hasApiKey: !!process.env.BREVO_API_KEY,
   senderEmail: process.env.BREVO_SENDER_EMAIL,
-  senderName: process.env.BREVO_SENDER_NAME
-});
+  senderName: process.env.BREVO_SENDER_NAME || 'LocalHub'
+};
 
+console.log('Initializing Brevo service with configuration:', brevoConfig);
+
+// Validate configuration
+const configErrors = [];
 if (!process.env.BREVO_API_KEY) {
-  console.error('BREVO_API_KEY is not configured in environment variables');
+  const error = 'BREVO_API_KEY is not configured in environment variables';
+  console.error(error);
+  configErrors.push(error);
 }
 if (!process.env.BREVO_SENDER_EMAIL) {
-  console.error('BREVO_SENDER_EMAIL is not configured in environment variables');
+  const error = 'BREVO_SENDER_EMAIL is not configured in environment variables';
+  console.error(error);
+  configErrors.push(error);
+}
+
+if (configErrors.length > 0) {
+  console.error('Brevo service initialization failed:', configErrors);
 }
 
 apiKey.apiKey = process.env.BREVO_API_KEY;
@@ -24,17 +36,22 @@ const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 const sendOTPEmail = async (email, otp) => {
   console.log('sendOTPEmail called with:', {
     email,
-    otpLength: otp?.length
+    otpLength: otp?.length,
+    config: brevoConfig
   });
 
   // Validate required environment variables
   if (!process.env.BREVO_API_KEY) {
-    console.error('BREVO_API_KEY is missing');
-    throw new Error('BREVO_API_KEY is not configured');
+    const error = new Error('BREVO_API_KEY is not configured');
+    error.code = 'MISSING_API_KEY';
+    console.error('Missing API key:', error);
+    throw error;
   }
   if (!process.env.BREVO_SENDER_EMAIL) {
-    console.error('BREVO_SENDER_EMAIL is missing');
-    throw new Error('BREVO_SENDER_EMAIL is not configured');
+    const error = new Error('BREVO_SENDER_EMAIL is not configured');
+    error.code = 'MISSING_SENDER_EMAIL';
+    console.error('Missing sender email:', error);
+    throw error;
   }
 
   const sender = {
@@ -66,7 +83,8 @@ const sendOTPEmail = async (email, otp) => {
     console.log('Attempting to send email with data:', {
       to: email,
       from: sender.email,
-      senderName: sender.name
+      senderName: sender.name,
+      apiKeyLength: process.env.BREVO_API_KEY?.length
     });
 
     const response = await apiInstance.sendTransacEmail(emailData);
@@ -81,7 +99,8 @@ const sendOTPEmail = async (email, otp) => {
       response: error.response?.text,
       status: error.status,
       stack: error.stack,
-      error: error
+      code: error.code,
+      name: error.name
     });
 
     // Add more specific error information
@@ -89,8 +108,25 @@ const sendOTPEmail = async (email, otp) => {
       try {
         const errorDetails = JSON.parse(error.response.text);
         console.error('Brevo API error details:', errorDetails);
+        
+        // Check for specific Brevo API errors
+        if (errorDetails.code === 'unauthorized') {
+          error.code = 'INVALID_API_KEY';
+          error.message = 'Invalid Brevo API key';
+        }
       } catch (e) {
         console.error('Could not parse error response:', error.response.text);
+      }
+    }
+
+    // Enhance error with specific code if not set
+    if (!error.code) {
+      if (error.message.includes('unauthorized') || error.message.includes('Unauthorized')) {
+        error.code = 'INVALID_API_KEY';
+      } else if (error.message.includes('network')) {
+        error.code = 'NETWORK_ERROR';
+      } else {
+        error.code = 'UNKNOWN_ERROR';
       }
     }
 
