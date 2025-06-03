@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const auth = require('../middleware/auth');
 const { Pool } = require('pg');
+const { sendOTPEmail } = require('../services/brevoService');
 
 const router = express.Router();
 
@@ -17,6 +18,135 @@ const pool = new Pool({
     ssl: {
         rejectUnauthorized: false
     }
+});
+
+// Store pending verifications (in production, use Redis or similar)
+const pendingVerifications = new Map();
+
+// Generate OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send Email OTP
+router.post('/send-email-otp', async (req, res) => {
+  try {
+    const { email, name, phoneNumber, password } = req.body;
+
+    // Check if email already exists
+    const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
+
+    // Check if phone number already exists
+    if (phoneNumber) {
+      const phoneCheck = await db.query('SELECT * FROM users WHERE phone_number = $1', [phoneNumber]);
+      if (phoneCheck.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Phone number already registered'
+        });
+      }
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+    
+    // Store verification data with expiry
+    pendingVerifications.set(email, {
+      otp,
+      name,
+      phoneNumber,
+      password,
+      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
+    });
+
+    // Send OTP email
+    await sendOTPEmail(email, otp);
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your email'
+    });
+  } catch (error) {
+    console.error('Error sending email OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send verification code'
+    });
+  }
+});
+
+// Verify Email OTP and Complete Registration
+router.post('/verify-email-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const verificationData = pendingVerifications.get(email);
+    if (!verificationData) {
+      return res.status(400).json({
+        success: false,
+        message: 'No verification pending for this email'
+      });
+    }
+
+    if (Date.now() > verificationData.expiresAt) {
+      pendingVerifications.delete(email);
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code expired'
+      });
+    }
+
+    if (verificationData.otp !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code'
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(verificationData.password, salt);
+    
+    // Use default avatar
+    const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(verificationData.name)}&background=random`;
+    
+    // Insert user into database
+    const result = await db.query(
+      'INSERT INTO users (name, email, phone_number, password, avatar, verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, phone_number, avatar, rating',
+      [verificationData.name, email, verificationData.phoneNumber, hashedPassword, avatar, true]
+    );
+    
+    const user = result.rows[0];
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    // Clear verification data
+    pendingVerifications.delete(email);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful',
+      user,
+      token
+    });
+  } catch (error) {
+    console.error('Error verifying email OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed'
+    });
+  }
 });
 
 // Register a new user

@@ -146,7 +146,41 @@ export const authAPI = {
         message: error.response?.data?.message || "Failed to get user data"
       };
     }
-  }
+  },
+
+  sendEmailOTP: async (email: string, name: string, phoneNumber: string, password: string) => {
+    try {
+      const response = await api.post('/api/auth/send-email-otp', {
+        email,
+        name,
+        phoneNumber,
+        password
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Send Email OTP error:", error.response || error);
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to send verification code"
+      };
+    }
+  },
+
+  verifyEmailOTP: async (email: string, otp: string) => {
+    try {
+      const response = await api.post('/api/auth/verify-email-otp', {
+        email,
+        otp
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Verify Email OTP error:", error.response || error);
+      return {
+        success: false,
+        message: error.response?.data?.message || "Failed to verify code"
+      };
+    }
+  },
 };
 
 // Posts API
