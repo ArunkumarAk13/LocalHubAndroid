@@ -11,38 +11,26 @@ const ratingRoutes = require('./routes/ratings');
 const chatRoutes = require('./routes/chat');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // CORS configuration
-const allowedOrigins = [
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'https://local-hub-website.vercel.app',
-  'capacitor://localhost',
-  'http://localhost'
-];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    console.log('Request origin:', origin);
-    if (!origin) {
-      console.log('No origin, allowing request');
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('Origin allowed:', origin);
-      callback(null, true);
-    } else {
-      console.log('Origin not allowed:', origin);
-      console.log('Allowed origins:', allowedOrigins);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',
+    'http://localhost',
+    'https://localhost',
+    'capacitor://localhost',
+    'http://localhost:8100',
+    'https://localhub-frontend.onrender.com'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  optionsSuccessStatus: 200
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
 // Add logging middleware
 app.use((req, res, next) => {
@@ -51,7 +39,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Body parser middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Ensure upload directory path is correct and accessible
 const uploadDir = path.resolve(__dirname, process.env.UPLOAD_DIR || './uploads');
@@ -90,11 +80,10 @@ app.get('/api/debug/uploads', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
     success: false,
-    message: 'Server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: err.message || 'Internal server error'
   });
 });
 

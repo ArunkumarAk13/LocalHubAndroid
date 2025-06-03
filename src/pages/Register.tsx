@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { authAPI } from "@/api";
+import { Capacitor } from '@capacitor/core';
 
 // Define the form schema with validation
 const formSchema = z.object({
@@ -149,7 +150,14 @@ const Register = () => {
 
   // Handle OTP verification
   const handleVerifyOTP = async () => {
-    if (!registrationData || !otp) return;
+    if (!registrationData || !otp) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter the verification code",
+      });
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -160,7 +168,15 @@ const Register = () => {
           title: "Success",
           description: "Registration completed successfully",
         });
-        navigate('/login', { replace: true });
+        
+        // Add a small delay before navigation on mobile
+        if (Capacitor.isNativePlatform()) {
+          setTimeout(() => {
+            navigate('/login', { replace: true });
+          }, 1000);
+        } else {
+          navigate('/login', { replace: true });
+        }
       } else {
         toast({
           variant: "destructive",

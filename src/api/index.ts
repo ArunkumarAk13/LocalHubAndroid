@@ -6,14 +6,43 @@ import { CapacitorHttp } from '@capacitor/core';
 // Create an axios instance with the correct baseURL
 const baseURL = API_BASE_URL;
 
-const api = axios.create({
-  baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  // withCredentials is needed for web, but can cause issues on native mobile
-  withCredentials: !Capacitor.isNativePlatform()
-});
+// Helper function to handle API errors
+const handleApiError = (error: any) => {
+  console.error('API Error:', {
+    url: error.config?.url,
+    status: error.response?.status,
+    data: error.response?.data,
+    message: error.message
+  });
+
+  return {
+    success: false,
+    message: error.response?.data?.message || error.message || 'An error occurred'
+  };
+};
+
+// Configure axios for native platforms
+const configureAxiosForNative = () => {
+  if (Capacitor.isNativePlatform()) {
+    return {
+      baseURL,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      withCredentials: false // Disable withCredentials for native
+    };
+  }
+
+  return {
+    baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    withCredentials: true
+  };
+};
+
+const api = axios.create(configureAxiosForNative());
 
 // Helper function to validate token
 const validateToken = (token: string): boolean => {
@@ -150,35 +179,77 @@ export const authAPI = {
 
   sendEmailOTP: async (email: string, name: string, phoneNumber: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/send-email-otp', {
-        email,
-        name,
-        phoneNumber,
-        password
-      });
-      return response.data;
+      let response;
+      
+      if (Capacitor.isNativePlatform()) {
+        // Use Capacitor HTTP for native platforms
+        response = await CapacitorHttp.post({
+          url: `${baseURL}/api/auth/send-email-otp`,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          data: {
+            email,
+            name,
+            phoneNumber,
+            password
+          }
+        });
+
+        return {
+          success: response.status === 200,
+          message: response.data.message,
+          data: response.data
+        };
+      } else {
+        // Use axios for web platform
+        response = await api.post('/api/auth/send-email-otp', {
+          email,
+          name,
+          phoneNumber,
+          password
+        });
+        return response.data;
+      }
     } catch (error: any) {
-      console.error("Send Email OTP error:", error.response || error);
-      return {
-        success: false,
-        message: error.response?.data?.message || "Failed to send verification code"
-      };
+      console.error("Send Email OTP error:", error);
+      return handleApiError(error);
     }
   },
 
   verifyEmailOTP: async (email: string, otp: string) => {
     try {
-      const response = await api.post('/api/auth/verify-email-otp', {
-        email,
-        otp
-      });
-      return response.data;
+      let response;
+      
+      if (Capacitor.isNativePlatform()) {
+        // Use Capacitor HTTP for native platforms
+        response = await CapacitorHttp.post({
+          url: `${baseURL}/api/auth/verify-email-otp`,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          data: {
+            email,
+            otp
+          }
+        });
+
+        return {
+          success: response.status === 200,
+          message: response.data.message,
+          data: response.data
+        };
+      } else {
+        // Use axios for web platform
+        response = await api.post('/api/auth/verify-email-otp', {
+          email,
+          otp
+        });
+        return response.data;
+      }
     } catch (error: any) {
-      console.error("Verify Email OTP error:", error.response || error);
-      return {
-        success: false,
-        message: error.response?.data?.message || "Failed to verify code"
-      };
+      console.error("Verify Email OTP error:", error);
+      return handleApiError(error);
     }
   },
 };
