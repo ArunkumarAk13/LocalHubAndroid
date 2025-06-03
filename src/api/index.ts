@@ -279,11 +279,17 @@ export const authAPI = {
 
   verifyEmailOTP: async (email: string, otp: string) => {
     try {
+      console.log('Sending verify-email-otp request:', {
+        email,
+        otpLength: otp?.length
+      });
+
       let response;
       
       if (Capacitor.isNativePlatform()) {
         // Use Capacitor HTTP for native platforms
-        response = await CapacitorHttp.post({
+        console.log('Using Capacitor HTTP for verification');
+        const requestData = {
           url: `${baseURL}/api/auth/verify-email-otp`,
           headers: {
             'Content-Type': 'application/json'
@@ -292,24 +298,67 @@ export const authAPI = {
             email,
             otp
           }
+        };
+
+        console.log('Capacitor request config:', {
+          url: requestData.url,
+          headers: requestData.headers
         });
 
-        return {
-          success: response.status === 200,
-          message: response.data.message,
-          data: response.data
-        };
+        try {
+          response = await CapacitorHttp.post(requestData);
+          console.log('Capacitor verification response:', {
+            status: response.status,
+            data: response.data
+          });
+
+          return {
+            success: response.status === 201,
+            message: response.data.message,
+            data: response.data
+          };
+        } catch (capacitorError: any) {
+          console.error('Capacitor HTTP verification error:', {
+            message: capacitorError.message,
+            code: capacitorError.code,
+            response: capacitorError.response
+          });
+          throw capacitorError;
+        }
       } else {
         // Use axios for web platform
+        console.log('Using Axios for verification');
         response = await api.post('/api/auth/verify-email-otp', {
           email,
           otp
         });
+        console.log('Axios verification response:', {
+          status: response.status,
+          data: response.data
+        });
         return response.data;
       }
     } catch (error: any) {
-      console.error("Verify Email OTP error:", error);
-      return handleApiError(error);
+      console.error("Verify Email OTP error:", {
+        message: error.message,
+        response: error.response,
+        status: error.status,
+        data: error.response?.data
+      });
+
+      // Check if it's a network error
+      if (!error.response) {
+        return {
+          success: false,
+          message: "Network error. Please check your internet connection."
+        };
+      }
+
+      // Return the error message from the server if available
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || "Verification failed"
+      };
     }
   },
 };

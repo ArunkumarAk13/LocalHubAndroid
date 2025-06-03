@@ -183,18 +183,49 @@ router.post('/send-email-otp', async (req, res) => {
 
 // Verify Email OTP and Complete Registration
 router.post('/verify-email-otp', async (req, res) => {
+  console.log('Received verify-email-otp request:', {
+    body: {
+      email: req.body.email,
+      otpLength: req.body.otp?.length
+    },
+    headers: req.headers
+  });
+
   try {
     const { email, otp } = req.body;
 
+    if (!email || !otp) {
+      console.log('Missing required fields:', {
+        hasEmail: !!email,
+        hasOTP: !!otp
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Email and verification code are required'
+      });
+    }
+
+    console.log('Checking verification data for email:', email);
     const verificationData = pendingVerifications.get(email);
+    
     if (!verificationData) {
+      console.log('No verification data found for email:', email);
       return res.status(400).json({
         success: false,
         message: 'No verification pending for this email'
       });
     }
 
+    console.log('Verification data found:', {
+      email,
+      hasOTP: !!verificationData.otp,
+      expiresAt: new Date(verificationData.expiresAt).toISOString(),
+      isExpired: Date.now() > verificationData.expiresAt,
+      otpMatch: verificationData.otp === otp
+    });
+
     if (Date.now() > verificationData.expiresAt) {
+      console.log('Verification code expired for email:', email);
       pendingVerifications.delete(email);
       return res.status(400).json({
         success: false,
@@ -203,6 +234,7 @@ router.post('/verify-email-otp', async (req, res) => {
     }
 
     if (verificationData.otp !== otp) {
+      console.log('Invalid verification code for email:', email);
       return res.status(400).json({
         success: false,
         message: 'Invalid verification code'
@@ -210,6 +242,7 @@ router.post('/verify-email-otp', async (req, res) => {
     }
 
     // Hash password
+    console.log('Hashing password for user:', email);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(verificationData.password, salt);
     
@@ -217,34 +250,79 @@ router.post('/verify-email-otp', async (req, res) => {
     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(verificationData.name)}&background=random`;
     
     // Insert user into database
-    const result = await db.query(
-      'INSERT INTO users (name, email, phone_number, password, avatar, verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, phone_number, avatar, rating',
-      [verificationData.name, email, verificationData.phoneNumber, hashedPassword, avatar, true]
-    );
-    
-    const user = result.rows[0];
-    
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    // Clear verification data
-    pendingVerifications.delete(email);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful',
-      user,
-      token
+    console.log('Inserting new user into database:', {
+      email,
+      name: verificationData.name,
+      hasPhoneNumber: !!verificationData.phoneNumber
     });
+
+    try {
+      const result = await db.query(
+        'INSERT INTO users (name, email, phone_number, password, avatar, verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, phone_number, avatar, rating',
+        [verificationData.name, email, verificationData.phoneNumber, hashedPassword, avatar, true]
+      );
+      
+      const user = result.rows[0];
+      console.log('Successfully created user:', {
+        userId: user.id,
+        email: user.email
+      });
+      
+      // Generate JWT token
+      console.log('Generating JWT token for user:', user.id);
+      const token = jwt.sign(
+        { id: user.id, name: user.name, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      // Clear verification data
+      console.log('Clearing verification data for email:', email);
+      pendingVerifications.delete(email);
+      
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful',
+        user,
+        token
+      });
+    } catch (dbError) {
+      console.error('Database error during user creation:', {
+        error: dbError,
+        message: dbError.message,
+        code: dbError.code,
+        constraint: dbError.constraint
+      });
+
+      // Handle specific database errors
+      if (dbError.code === '23505') { // unique_violation
+        if (dbError.constraint === 'users_email_key') {
+          return res.status(400).json({
+            success: false,
+            message: 'Email already registered'
+          });
+        }
+        if (dbError.constraint === 'users_phone_number_key') {
+          return res.status(400).json({
+            success: false,
+            message: 'Phone number already registered'
+          });
+        }
+      }
+
+      throw dbError; // Re-throw for general error handling
+    }
   } catch (error) {
-    console.error('Error verifying email OTP:', error);
+    console.error('Error in /verify-email-otp route:', {
+      error: error,
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
     res.status(500).json({
       success: false,
-      message: 'Registration failed'
+      message: 'Registration failed. Please try again.'
     });
   }
 });
