@@ -30,10 +30,24 @@ const generateOTP = () => {
 
 // Send Email OTP
 router.post('/send-email-otp', async (req, res) => {
+  console.log('Received send-email-otp request:', {
+    body: {
+      email: req.body.email,
+      name: req.body.name,
+      phoneNumber: req.body.phoneNumber ? 'provided' : 'not provided'
+    },
+    headers: req.headers
+  });
+
   try {
     const { email, name, phoneNumber, password } = req.body;
 
     if (!email || !name || !password) {
+      console.log('Missing required fields:', {
+        hasEmail: !!email,
+        hasName: !!name,
+        hasPassword: !!password
+      });
       return res.status(400).json({
         success: false,
         message: 'Email, name, and password are required'
@@ -41,8 +55,10 @@ router.post('/send-email-otp', async (req, res) => {
     }
 
     // Check if email already exists
+    console.log('Checking if email exists:', email);
     const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userCheck.rows.length > 0) {
+      console.log('Email already registered:', email);
       return res.status(400).json({
         success: false,
         message: 'Email already registered'
@@ -51,8 +67,10 @@ router.post('/send-email-otp', async (req, res) => {
 
     // Check if phone number already exists
     if (phoneNumber) {
+      console.log('Checking if phone number exists:', phoneNumber);
       const phoneCheck = await db.query('SELECT * FROM users WHERE phone_number = $1', [phoneNumber]);
       if (phoneCheck.rows.length > 0) {
+        console.log('Phone number already registered:', phoneNumber);
         return res.status(400).json({
           success: false,
           message: 'Phone number already registered'
@@ -73,16 +91,24 @@ router.post('/send-email-otp', async (req, res) => {
       expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
     });
 
+    console.log('Stored verification data for:', email);
+
     try {
       // Send OTP email
+      console.log('Attempting to send OTP email to:', email);
       await sendOTPEmail(email, otp);
+      console.log('Successfully sent OTP email to:', email);
 
       res.json({
         success: true,
         message: 'Verification code sent to your email'
       });
     } catch (emailError) {
-      console.error('Error in sendOTPEmail:', emailError);
+      console.error('Error in sendOTPEmail:', {
+        error: emailError,
+        message: emailError.message,
+        stack: emailError.stack
+      });
       
       // Clear the pending verification since email failed
       pendingVerifications.delete(email);
@@ -90,6 +116,7 @@ router.post('/send-email-otp', async (req, res) => {
       // Check for specific error types
       if (emailError.message === 'BREVO_API_KEY is not configured' || 
           emailError.message === 'BREVO_SENDER_EMAIL is not configured') {
+        console.error('Brevo configuration error:', emailError.message);
         return res.status(500).json({
           success: false,
           message: 'Email service is not properly configured'
@@ -103,7 +130,11 @@ router.post('/send-email-otp', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error in /send-email-otp route:', error);
+    console.error('Error in /send-email-otp route:', {
+      error: error,
+      message: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
       success: false,
       message: 'An unexpected error occurred'

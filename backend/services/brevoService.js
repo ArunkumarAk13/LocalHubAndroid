@@ -4,27 +4,42 @@ const defaultClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = defaultClient.authentications['api-key'];
 
 // Log Brevo configuration
-console.log('Brevo Configuration:');
-console.log('API Key exists:', !!process.env.BREVO_API_KEY);
-console.log('Sender Email:', process.env.BREVO_SENDER_EMAIL);
-console.log('Sender Name:', process.env.BREVO_SENDER_NAME);
+console.log('Initializing Brevo service with configuration:', {
+  hasApiKey: !!process.env.BREVO_API_KEY,
+  senderEmail: process.env.BREVO_SENDER_EMAIL,
+  senderName: process.env.BREVO_SENDER_NAME
+});
+
+if (!process.env.BREVO_API_KEY) {
+  console.error('BREVO_API_KEY is not configured in environment variables');
+}
+if (!process.env.BREVO_SENDER_EMAIL) {
+  console.error('BREVO_SENDER_EMAIL is not configured in environment variables');
+}
 
 apiKey.apiKey = process.env.BREVO_API_KEY;
 
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 const sendOTPEmail = async (email, otp) => {
+  console.log('sendOTPEmail called with:', {
+    email,
+    otpLength: otp?.length
+  });
+
   // Validate required environment variables
   if (!process.env.BREVO_API_KEY) {
+    console.error('BREVO_API_KEY is missing');
     throw new Error('BREVO_API_KEY is not configured');
   }
   if (!process.env.BREVO_SENDER_EMAIL) {
+    console.error('BREVO_SENDER_EMAIL is missing');
     throw new Error('BREVO_SENDER_EMAIL is not configured');
   }
 
   const sender = {
     email: process.env.BREVO_SENDER_EMAIL,
-    name: process.env.BREVO_SENDER_NAME || 'Your App Name'
+    name: process.env.BREVO_SENDER_NAME || 'LocalHub'
   };
 
   const receivers = [{
@@ -48,19 +63,37 @@ const sendOTPEmail = async (email, otp) => {
   };
 
   try {
-    console.log('Attempting to send email to:', email);
-    console.log('Email data:', JSON.stringify(emailData, null, 2));
-    
+    console.log('Attempting to send email with data:', {
+      to: email,
+      from: sender.email,
+      senderName: sender.name
+    });
+
     const response = await apiInstance.sendTransacEmail(emailData);
-    console.log('Email sent successfully:', response);
+    console.log('Email sent successfully:', {
+      messageId: response.messageId,
+      response: response
+    });
     return true;
   } catch (error) {
     console.error('Error sending email:', {
       message: error.message,
       response: error.response?.text,
       status: error.status,
-      stack: error.stack
+      stack: error.stack,
+      error: error
     });
+
+    // Add more specific error information
+    if (error.response?.text) {
+      try {
+        const errorDetails = JSON.parse(error.response.text);
+        console.error('Brevo API error details:', errorDetails);
+      } catch (e) {
+        console.error('Could not parse error response:', error.response.text);
+      }
+    }
+
     throw error;
   }
 };

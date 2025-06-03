@@ -179,11 +179,19 @@ export const authAPI = {
 
   sendEmailOTP: async (email: string, name: string, phoneNumber: string, password: string) => {
     try {
+      console.log('Sending email OTP request:', {
+        url: `${baseURL}/api/auth/send-email-otp`,
+        email,
+        name,
+        phoneNumber: phoneNumber ? 'provided' : 'not provided'
+      });
+
       let response;
       
       if (Capacitor.isNativePlatform()) {
         // Use Capacitor HTTP for native platforms
-        response = await CapacitorHttp.post({
+        console.log('Using Capacitor HTTP for request');
+        const requestData = {
           url: `${baseURL}/api/auth/send-email-otp`,
           headers: {
             'Content-Type': 'application/json'
@@ -194,7 +202,28 @@ export const authAPI = {
             phoneNumber,
             password
           }
+        };
+        
+        console.log('Capacitor request config:', {
+          url: requestData.url,
+          headers: requestData.headers
         });
+
+        try {
+          response = await CapacitorHttp.post(requestData);
+          console.log('Capacitor response:', {
+            status: response.status,
+            data: response.data,
+            headers: response.headers
+          });
+        } catch (capacitorError: any) {
+          console.error('Capacitor HTTP error:', {
+            message: capacitorError.message,
+            code: capacitorError.code,
+            response: capacitorError.response
+          });
+          throw capacitorError;
+        }
 
         return {
           success: response.status === 200,
@@ -203,17 +232,48 @@ export const authAPI = {
         };
       } else {
         // Use axios for web platform
+        console.log('Using Axios for request');
         response = await api.post('/api/auth/send-email-otp', {
           email,
           name,
           phoneNumber,
           password
         });
+        console.log('Axios response:', {
+          status: response.status,
+          data: response.data
+        });
         return response.data;
       }
     } catch (error: any) {
-      console.error("Send Email OTP error:", error);
-      return handleApiError(error);
+      console.error("Send Email OTP error:", {
+        message: error.message,
+        response: error.response,
+        status: error.status,
+        data: error.response?.data,
+        stack: error.stack
+      });
+      
+      // Check if it's a network error
+      if (!error.response) {
+        return {
+          success: false,
+          message: "Network error. Please check your internet connection."
+        };
+      }
+      
+      // Check if it's a server error
+      if (error.response?.status >= 500) {
+        return {
+          success: false,
+          message: "Server error. Please try again later."
+        };
+      }
+      
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || "Failed to send verification code"
+      };
     }
   },
 
