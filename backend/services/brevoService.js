@@ -2,11 +2,26 @@ const SibApiV3Sdk = require('sib-api-v3-sdk');
 
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
 const apiKey = defaultClient.authentications['api-key'];
+
+// Log Brevo configuration
+console.log('Brevo Configuration:');
+console.log('API Key exists:', !!process.env.BREVO_API_KEY);
+console.log('Sender Email:', process.env.BREVO_SENDER_EMAIL);
+console.log('Sender Name:', process.env.BREVO_SENDER_NAME);
+
 apiKey.apiKey = process.env.BREVO_API_KEY;
 
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 const sendOTPEmail = async (email, otp) => {
+  // Validate required environment variables
+  if (!process.env.BREVO_API_KEY) {
+    throw new Error('BREVO_API_KEY is not configured');
+  }
+  if (!process.env.BREVO_SENDER_EMAIL) {
+    throw new Error('BREVO_SENDER_EMAIL is not configured');
+  }
+
   const sender = {
     email: process.env.BREVO_SENDER_EMAIL,
     name: process.env.BREVO_SENDER_NAME || 'Your App Name'
@@ -33,11 +48,19 @@ const sendOTPEmail = async (email, otp) => {
   };
 
   try {
+    console.log('Attempting to send email to:', email);
+    console.log('Email data:', JSON.stringify(emailData, null, 2));
+    
     const response = await apiInstance.sendTransacEmail(emailData);
     console.log('Email sent successfully:', response);
     return true;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('Error sending email:', {
+      message: error.message,
+      response: error.response?.text,
+      status: error.status,
+      stack: error.stack
+    });
     throw error;
   }
 };

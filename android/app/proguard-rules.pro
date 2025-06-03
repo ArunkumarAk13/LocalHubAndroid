@@ -21,20 +21,12 @@
 #-renamesourcefileattribute SourceFile
 
 # Keep your application class
--keep class com.localhub.app.** { *; }
-
-# Keep Twilio classes
--keep class com.twilio.** { *; }
--keep class com.twilio.rest.** { *; }
--keep class com.twilio.exception.** { *; }
+-keep class com.localhub.app.MainApplication { *; }
 
 # Keep Retrofit classes
--keepattributes Signature
--keepattributes *Annotation*
 -keep class retrofit2.** { *; }
--keepclasseswithmembers class * {
-    @retrofit2.http.* <methods>;
-}
+-keepattributes Signature
+-keepattributes Exceptions
 
 # Keep OkHttp classes
 -dontwarn okhttp3.**

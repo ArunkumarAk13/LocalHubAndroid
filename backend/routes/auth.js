@@ -33,6 +33,13 @@ router.post('/send-email-otp', async (req, res) => {
   try {
     const { email, name, phoneNumber, password } = req.body;
 
+    if (!email || !name || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, name, and password are required'
+      });
+    }
+
     // Check if email already exists
     const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userCheck.rows.length > 0) {
@@ -55,6 +62,7 @@ router.post('/send-email-otp', async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
+    console.log('Generated OTP for', email, ':', otp);
     
     // Store verification data with expiry
     pendingVerifications.set(email, {
@@ -65,18 +73,40 @@ router.post('/send-email-otp', async (req, res) => {
       expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
     });
 
-    // Send OTP email
-    await sendOTPEmail(email, otp);
+    try {
+      // Send OTP email
+      await sendOTPEmail(email, otp);
 
-    res.json({
-      success: true,
-      message: 'Verification code sent to your email'
-    });
+      res.json({
+        success: true,
+        message: 'Verification code sent to your email'
+      });
+    } catch (emailError) {
+      console.error('Error in sendOTPEmail:', emailError);
+      
+      // Clear the pending verification since email failed
+      pendingVerifications.delete(email);
+      
+      // Check for specific error types
+      if (emailError.message === 'BREVO_API_KEY is not configured' || 
+          emailError.message === 'BREVO_SENDER_EMAIL is not configured') {
+        return res.status(500).json({
+          success: false,
+          message: 'Email service is not properly configured'
+        });
+      }
+      
+      // Handle other email sending errors
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send verification code. Please try again later.'
+      });
+    }
   } catch (error) {
-    console.error('Error sending email OTP:', error);
+    console.error('Error in /send-email-otp route:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to send verification code'
+      message: 'An unexpected error occurred'
     });
   }
 });
