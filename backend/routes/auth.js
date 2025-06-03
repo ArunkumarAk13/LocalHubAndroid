@@ -37,8 +37,12 @@ router.post('/send-email-otp', async (req, res) => {
       phoneNumber: req.body.phoneNumber ? 'provided' : 'not provided'
     },
     headers: req.headers,
-    hasBrevoKey: !!process.env.BREVO_API_KEY,
-    hasBrevoSender: !!process.env.BREVO_SENDER_EMAIL
+    brevoConfig: {
+      hasApiKey: !!process.env.BREVO_API_KEY,
+      apiKeyFormat: process.env.BREVO_API_KEY?.startsWith('xkeysib-') ? 'valid' : 'invalid',
+      hasBrevoSender: !!process.env.BREVO_SENDER_EMAIL,
+      senderEmailValid: process.env.BREVO_SENDER_EMAIL?.includes('@')
+    }
   });
 
   try {
@@ -119,7 +123,14 @@ router.post('/send-email-otp', async (req, res) => {
       // Handle specific error codes
       switch (emailError.code) {
         case 'MISSING_API_KEY':
+          return res.status(500).json({
+            success: false,
+            message: 'Email service is not configured. Please contact support.',
+            code: emailError.code
+          });
+
         case 'INVALID_API_KEY':
+        case 'INVALID_API_KEY_FORMAT':
           return res.status(500).json({
             success: false,
             message: 'Email service authentication failed. Please contact support.',
@@ -130,6 +141,13 @@ router.post('/send-email-otp', async (req, res) => {
           return res.status(500).json({
             success: false,
             message: 'Email service configuration error. Please contact support.',
+            code: emailError.code
+          });
+          
+        case 'API_INIT_ERROR':
+          return res.status(500).json({
+            success: false,
+            message: 'Email service initialization failed. Please contact support.',
             code: emailError.code
           });
           
