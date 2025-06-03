@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { authAPI } from '../api';
 import { Capacitor } from '@capacitor/core';
 import { usersAPI } from '../api';
@@ -21,8 +21,8 @@ export interface User {
 // Define the context type
 interface AuthContextType {
   user: User | null;
-  login: (phoneNumber: string, password: string) => Promise<boolean>;
-  register: (name: string, phoneNumber: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -121,9 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Login function
-  const login = async (phoneNumber: string, password: string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const response = await authAPI.login(phoneNumber, password);
+      const response = await authAPI.login(email, password);
       if (response.success) {
         localStorage.setItem('token', response.token);
         setUser(response.user);
@@ -138,27 +138,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        return { success: true };
+        toast.success('Login successful!');
+        // Add a small delay before navigation to ensure state is updated
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 100);
+        return true;
       } else {
-        return { success: false, message: response.message };
+        toast.error(response.message || 'Login failed');
+        return false;
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Failed to login. Please try again.' 
-      };
+      toast.error(error.response?.data?.message || 'Failed to login. Please try again.');
+      return false;
     }
   };
 
   // Register function
-  const register = async (name: string, phoneNumber: string, password: string) => {
+  const register = async (name: string, email: string, password: string) => {
     try {
       // Clear previous user data first
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
       
-      const response = await authAPI.register(name, phoneNumber, password);
+      const response = await authAPI.register(name, email, password);
       
       if (response.success) {
         setUser(response.user);

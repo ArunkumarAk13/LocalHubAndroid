@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Lock, User, ArrowRight, Eye, EyeOff, Phone, Loader2, ArrowLeft } from "lucide-react";
+import { Lock, User, ArrowRight, Eye, EyeOff, Phone, Loader2, ArrowLeft, Mail } from "lucide-react";
 import { Capacitor } from '@capacitor/core';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../contexts/AuthContext";
@@ -26,6 +26,7 @@ import { authAPI } from '../api';
 // Define the form schema with validation
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters" })
     .refine(
       (password) => /[A-Z]/.test(password),
@@ -40,8 +41,6 @@ const formSchema = z.object({
       { message: "Password must contain at least one special character" }
     ),
   confirmPassword: z.string().min(8, { message: "Confirm password is required" }),
-  phoneNumber: z.string().length(10, { message: "Phone number must be exactly 10 digits" })
-    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -82,9 +81,9 @@ const Register = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      email: "",
       password: "",
       confirmPassword: "",
-      phoneNumber: "",
     },
     mode: "onChange",
   });
@@ -309,24 +308,21 @@ const Register = () => {
 
                   <FormField
                     control={form.control}
-                    name="phoneNumber"
+                    name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
+                        <FormLabel>Email</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                             <Input
                               {...field}
                               className="pl-10"
-                              placeholder="Enter your phone number"
-                              onChange={(e) => handlePhoneChange(e, field.onChange)}
+                              placeholder="Enter your email"
+                              type="email"
                             />
                           </div>
                         </FormControl>
-                        {phoneError && (
-                          <p className="text-sm text-destructive">{phoneError}</p>
-                        )}
                         <FormMessage />
                       </FormItem>
                     )}

@@ -36,7 +36,7 @@ const pendingRegistrations = new Map();
 // Register a new user
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password, phoneNumber } = req.body;
+    const { name, email, password } = req.body;
     
     // Check if user exists
     const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -52,17 +52,17 @@ router.post('/register', async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, salt);
     
     // Use default avatar
-    const avatar = 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=';
+    const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
     
     // Insert user into database
     const result = await db.query(
-      'INSERT INTO users (name, email, password, avatar, phone_number) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, avatar, phone_number, rating',
-      [name, email, hashedPassword, avatar, phoneNumber]
+      'INSERT INTO users (name, email, password, avatar) VALUES ($1, $2, $3, $4) RETURNING id, name, email, avatar, rating',
+      [name, email, hashedPassword, avatar]
     );
     
     const user = result.rows[0];
     
-    // Generate JWT token with numeric ID
+    // Generate JWT token
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email },
       process.env.JWT_SECRET,
@@ -163,20 +163,17 @@ router.post('/register-with-otp', async (req, res) => {
 // Login user
 router.post('/login', async (req, res, next) => {
   try {
-    const { phone_number } = req.body;
+    const { email, password } = req.body;
     
-    if (!phone_number) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Phone number is required'
+        message: 'Email and password are required'
       });
     }
-
-    // Format phone number to E.164 format
-    const formattedNumber = phone_number.startsWith('+') ? phone_number : `+91${phone_number}`;
     
     // Get user from database
-    const result = await db.query('SELECT * FROM users WHERE phone_number = $1', [formattedNumber]);
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     
     // If no user found
     if (result.rows.length === 0) {
@@ -188,10 +185,19 @@ router.post('/login', async (req, res, next) => {
     
     const user = result.rows[0];
     
+    // Verify password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid login credentials'
+      });
+    }
+    
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
     
-    // Generate JWT token with 'id' instead of 'userId'
+    // Generate JWT token
     const token = jwt.sign(
       { id: user.id },
       process.env.JWT_SECRET,

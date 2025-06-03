@@ -87,10 +87,10 @@ api.interceptors.response.use(
 
 // Authentication API
 export const authAPI = {
-  login: async (phoneNumber: string, password: string) => {
+  login: async (email: string, password: string) => {
     try {
       const response = await api.post('/api/auth/login', { 
-        phone_number: phoneNumber,
+        email,
         password 
       });
       return response.data;
@@ -100,7 +100,7 @@ export const authAPI = {
       if (error.response) {
         return {
           success: false,
-          message: error.response.data?.message || "Invalid phone number or password"
+          message: error.response.data?.message || "Invalid email or password"
         };
       }
       
@@ -111,9 +111,9 @@ export const authAPI = {
     }
   },
 
-  register: async (name: string, phoneNumber: string, password: string) => {
+  register: async (name: string, email: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/register', { name, phone_number: phoneNumber, password });
+      const response = await api.post('/api/auth/register', { name, email, password });
       return response.data;
     } catch (error: any) {
       console.error("Registration error:", error.response || error);

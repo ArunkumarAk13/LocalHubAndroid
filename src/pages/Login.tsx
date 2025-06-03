@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Phone, Lock, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Phone, Lock, ArrowRight, Eye, EyeOff, AlertCircle, Mail } from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,49 +22,47 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Define the form schema
 const formSchema = z.object({
-  phoneNumber: z.string()
-    .length(10, { message: "Phone number must be exactly 10 digits" })
-    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
 });
 
 const Login = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Initialize form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      phoneNumber: "",
+      email: "",
       password: "",
     },
   });
 
   // Form submission handler
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
     setLoginError(null); // Clear previous errors
+    
     try {
-      const result = await login(values.phoneNumber, values.password);
-      if (!result) {
-        setLoginError("Phone number or password is incorrect");
-        // Keep the form's error state
-        form.setError("phoneNumber", { type: "manual" });
+      const success = await login(values.email, values.password);
+      if (!success) {
+        setLoginError("Email or password is incorrect");
+        form.setError("email", { type: "manual" });
         form.setError("password", { type: "manual" });
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      setLoginError("Phone number or password is incorrect");
-      form.setError("phoneNumber", { type: "manual" });
+      setLoginError("Email or password is incorrect");
+      form.setError("email", { type: "manual" });
       form.setError("password", { type: "manual" });
-    }
-  };
-
-  // Prevent form from submitting normally
-  const handleSubmit = (e: React.FormEvent) => {
-    if (loginError) {
-      e.preventDefault();
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,32 +84,24 @@ const Login = () => {
             )}
 
             <Form {...form}>
-              <form onSubmit={(e) => {
-                e.preventDefault(); // Always prevent default form submission
-                form.handleSubmit(onSubmit)(e);
-              }} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="phoneNumber"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-base">Phone Number</FormLabel>
+                      <FormLabel className="text-base">Email</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                            <Phone size={18} />
+                            <Mail size={18} />
                           </div>
                           <Input 
-                            placeholder="Enter 10 digit number" 
+                            placeholder="Enter your email" 
                             className={`pl-10 h-12 text-base ${loginError ? "border-destructive focus-visible:ring-destructive" : ""}`} 
-                            value={field.value}
-                            onChange={(e) => {
-                              // Only allow digits and limit to 10 characters
-                              const sanitizedValue = e.target.value.replace(/\D/g, '').slice(0, 10);
-                              field.onChange(sanitizedValue);
-                            }}
-                            maxLength={10}
-                            inputMode="numeric"
+                            type="email"
+                            {...field}
+                            disabled={isLoading}
                           />
                         </div>
                       </FormControl>
@@ -134,11 +125,13 @@ const Login = () => {
                             placeholder="••••••••" 
                             className={`pl-10 h-12 text-base ${loginError ? "border-destructive focus-visible:ring-destructive" : ""}`} 
                             {...field} 
+                            disabled={isLoading}
                           />
                           <Button
                             type="button"
                             className="absolute top-1/2 -translate-y-1/2 right-0 px-3 text-muted-foreground bg-transparent hover:bg-transparent"
                             onClick={() => setShowPassword(!showPassword)}
+                            disabled={isLoading}
                           >
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                           </Button>
@@ -151,8 +144,13 @@ const Login = () => {
                 <Button 
                   type="submit" 
                   className="w-full h-12 text-base font-medium bg-primary hover:bg-primary/90"
+                  disabled={isLoading}
                 >
-                  Sign In <ArrowRight className="ml-2 h-4 w-4" />
+                  {isLoading ? (
+                    <>Signing In...</>
+                  ) : (
+                    <>Sign In <ArrowRight className="ml-2 h-4 w-4" /></>
+                  )}
                 </Button>
               </form>
             </Form>
