@@ -36,14 +36,23 @@ const pendingRegistrations = new Map();
 // Register a new user
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, phoneNumber, password } = req.body;
     
-    // Check if user exists
-    const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (userCheck.rows.length > 0) {
+    // Check if user exists with email
+    const userCheckEmail = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userCheckEmail.rows.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'User already exists with this email'
+      });
+    }
+
+    // Check if user exists with phone number
+    const userCheckPhone = await db.query('SELECT * FROM users WHERE phone_number = $1', [phoneNumber]);
+    if (userCheckPhone.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this phone number'
       });
     }
     
@@ -54,10 +63,10 @@ router.post('/register', async (req, res, next) => {
     // Use default avatar
     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
     
-    // Insert user into database
+    // Insert user into database with both email and phone number
     const result = await db.query(
-      'INSERT INTO users (name, email, password, avatar) VALUES ($1, $2, $3, $4) RETURNING id, name, email, avatar, rating',
-      [name, email, hashedPassword, avatar]
+      'INSERT INTO users (name, email, phone_number, password, avatar) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, phone_number, avatar, rating',
+      [name, email, phoneNumber, hashedPassword, avatar]
     );
     
     const user = result.rows[0];

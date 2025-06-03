@@ -27,6 +27,8 @@ import { authAPI } from '../api';
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
+  phoneNumber: z.string().length(10, { message: "Phone number must be exactly 10 digits" })
+    .refine((val) => /^\d+$/.test(val), { message: "Phone number must contain only digits" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters" })
     .refine(
       (password) => /[A-Z]/.test(password),
@@ -82,6 +84,7 @@ const Register = () => {
     defaultValues: {
       name: "",
       email: "",
+      phoneNumber: "",
       password: "",
       confirmPassword: "",
     },
@@ -141,35 +144,27 @@ const Register = () => {
     setOtpError(null);
     
     try {
-      console.log('[Register] Starting OTP request process');
-      console.log('[Register] Platform:', Capacitor.getPlatform());
-      console.log('[Register] Is Android:', Capacitor.getPlatform() === 'android');
-      console.log('[Register] Phone number:', values.phoneNumber);
+      const success = await register(
+        values.name,
+        values.email,
+        values.phoneNumber,
+        values.password
+      );
       
-      const response = await authAPI.requestOTP(values.phoneNumber);
-      
-      if (response.success) {
-        setRegistrationStep(RegistrationStep.OTP_VERIFICATION);
-        startOtpCountdown();
+      if (success) {
         toast({
           title: "Success",
-          description: "OTP sent successfully",
+          description: "Registration completed successfully",
         });
-      } else {
-        setOtpError(response.message || "Failed to send OTP. Please try again.");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: response.message || "Failed to send OTP. Please try again.",
-        });
+        navigate('/login', { replace: true });
       }
     } catch (error: any) {
-      console.error('[Register] Error requesting OTP:', error);
+      console.error('[Register] Error during registration:', error);
       setOtpError(error.message || "Something went wrong. Please try again.");
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to send OTP. Please try again.",
+        description: error.message || "Registration failed. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -323,6 +318,33 @@ const Register = () => {
                             />
                           </div>
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              className="pl-10"
+                              placeholder="Enter your phone number"
+                              onChange={(e) => handlePhoneChange(e, field.onChange)}
+                              maxLength={10}
+                              inputMode="numeric"
+                            />
+                          </div>
+                        </FormControl>
+                        {phoneError && (
+                          <p className="text-sm text-destructive">{phoneError}</p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

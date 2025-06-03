@@ -22,7 +22,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -156,13 +156,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Register function
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, phoneNumber: string, password: string) => {
     try {
       // Clear previous user data first
       localStorage.removeItem('subscribedCategories');
       localStorage.removeItem('userNotifications');
       
-      const response = await authAPI.register(name, email, password);
+      const response = await authAPI.register(name, email, phoneNumber, password);
       
       if (response.success) {
         setUser(response.user);

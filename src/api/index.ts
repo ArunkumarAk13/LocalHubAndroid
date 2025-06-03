@@ -111,9 +111,14 @@ export const authAPI = {
     }
   },
 
-  register: async (name: string, email: string, password: string) => {
+  register: async (name: string, email: string, phoneNumber: string, password: string) => {
     try {
-      const response = await api.post('/api/auth/register', { name, email, password });
+      const response = await api.post('/api/auth/register', { 
+        name, 
+        email, 
+        phoneNumber, 
+        password 
+      });
       return response.data;
     } catch (error: any) {
       console.error("Registration error:", error.response || error);
