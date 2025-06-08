@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ChevronLeft, Trash, CheckCircle, Loader2, Star } from 'lucide-react';
-import { postsAPI, chatsAPI, ratingsAPI } from '@/api';
+import { postsAPI } from '@/api';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/api/config';
 import { Label } from "@/components/ui/label";
@@ -54,25 +54,7 @@ const MyPosts: React.FC = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Dialog states
-  const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
-  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
-  
-  // Selected data
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [selectedSeller, setSelectedSeller] = useState<ChatParticipant | null>(null);
-  const [selectedRating, setSelectedRating] = useState(0);
-  const [chatParticipants, setChatParticipants] = useState<ChatParticipant[]>([]);
-
-  // New states for user selection and rating
-  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<any>(null);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [rating, setRating] = useState(0);
-  const [ratingComment, setRatingComment] = useState('');
 
   // Load user posts
   useEffect(() => {
@@ -148,129 +130,37 @@ const MyPosts: React.FC = () => {
     }
   };
 
-  const loadChatParticipants = async (postId: string) => {
+  const handleMarkAsPurchased = async (postId: string) => {
     try {
-      setLoadingParticipants(true);
-      const response = await chatsAPI.getAllChats();
-      
+      const response = await postsAPI.markAsPurchased(postId);
       if (response.success) {
-        // Extract unique participants from all chats
-        const uniqueParticipants: Record<string, ChatParticipant> = {};
-        
-        // Handle both array or direct response formats
-        const chats = Array.isArray(response) ? response : 
-                      Array.isArray(response.chats) ? response.chats : 
-                      Array.isArray(response.data) ? response.data : [];
-        
-        // Process each chat to extract participant information
-        chats.forEach((chat: any) => {
-          // Check for participant_id with various property name patterns
-          const participantId = chat.participant_id || 
-                               (chat.participant && chat.participant.id) ||
-                               chat.participantId;
-                               
-          // Check for participant_name with various property name patterns
-          const participantName = chat.participant_name || 
-                                 (chat.participant && chat.participant.name) ||
-                                 chat.participantName;
-                                 
-          // Check for participant_avatar with various property name patterns
-          const participantAvatar = chat.participant_avatar || 
-                                   (chat.participant && chat.participant.avatar) ||
-                                   chat.participantAvatar;
-          
-          // Add participant to the unique list if they're not the current user
-          if (participantId && participantId !== user?.id) {
-            uniqueParticipants[participantId] = {
-              id: participantId,
-              name: participantName || "Unknown User",
-              avatar: participantAvatar || ""
-            };
-          }
-        });
-        
-        // Convert to array
-        const participants = Object.values(uniqueParticipants);
-        setChatParticipants(participants);
-        
-        if (participants.length === 0) {
-          toast.info("No chat participants found");
-        }
-      } else {
-        console.error("Failed to load chats:", response);
-        toast.error("Failed to load participants");
-      }
-    } catch (error) {
-      console.error("Error loading chat participants:", error);
-      toast.error("Error loading participants");
-    } finally {
-      setLoadingParticipants(false);
-    }
-  };
-
-  const openPurchaseDialog = async (postId: string) => {
-    setSelectedPostId(postId);
-    setSelectedSeller(null);
-    setSelectedRating(0);
-    setIsPurchaseDialogOpen(true);
-    
-    // Load chat participants for this post
-    await loadChatParticipants(postId);
-  };
-
-  const handleSelectSeller = (participant: ChatParticipant) => {
-    setSelectedSeller(participant);
-    setIsRatingDialogOpen(true); // Open rating dialog immediately
-    setIsPurchaseDialogOpen(false); // Close the participant selection dialog
-  };
-
-  const handleRatingComplete = async (rating: number) => {
-    try {
-      if (!selectedPostId || !selectedSeller) {
-        toast.error("Missing post or seller information");
-        return;
-      }
-
-      // Show loading indicator
-      const loadingToast = toast.loading("Processing your purchase and rating...");
-      
-      // Mark the post as purchased with the selected seller and rating
-      const response = await postsAPI.markAsPurchased(
-        selectedPostId, 
-        selectedSeller.id,
-        rating,
-        ratingComment
-      );
-      
-      if (response.success) {
-        // Update local post state
         setPosts(posts.map(post => 
-          post.id === selectedPostId ? { ...post, purchased: true } : post
+          post.id === postId ? { ...post, purchased: true } : post
         ));
-        
-        // Dismiss loading toast and show success
-        toast.dismiss(loadingToast);
-        toast.success("Post marked as purchased and seller rated successfully!");
-        
-        // Reset all states
-        setIsRatingDialogOpen(false);
-        setSelectedPostId(null);
-        setSelectedSeller(null);
-        setSelectedRating(0);
-        setRatingComment('');
+        useToastToast({
+          title: "Success",
+          description: "Post marked as purchased"
+        });
       } else {
-        toast.dismiss(loadingToast);
-        toast.error(response.message || "Failed to mark post as purchased");
+        useToastToast({
+          title: "Error",
+          description: "Failed to mark post as purchased",
+          variant: "destructive"
+        });
       }
-    } catch (error: any) {
-      console.error("Error processing purchase:", error);
-      toast.error(error.message || "An error occurred while processing your request");
+    } catch (err) {
+      console.error("Error marking post as purchased:", err);
+      useToastToast({
+        title: "Error",
+        description: "Failed to mark post as purchased",
+        variant: "destructive"
+      });
     }
   };
 
   const handleRemovePurchased = async (postId: string) => {
     try {
-      const response = await postsAPI.markAsPurchased(postId); // Reuse the same endpoint
+      const response = await postsAPI.markAsPurchased(postId);
       if (response.success) {
         setPosts(posts.map(post => 
           post.id === postId ? { ...post, purchased: false } : post
@@ -297,82 +187,10 @@ const MyPosts: React.FC = () => {
   };
 
   const getImageUrl = (url: string) => {
-    console.log('Getting image URL for:', url);
     if (!url) return 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
     if (url.startsWith('http')) return url;
     if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
     return `${API_BASE_URL}/uploads/post-images/${url}`;
-  };
-
-  const getAvatarUrl = (url: string) => {
-    if (!url) return "https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=";
-    if (url.startsWith('blob:')) return url;
-    if (url.startsWith('http')) return url;
-    return `${API_BASE_URL}${url}`;
-  };
-
-  // Rating stars component
-  const renderRatingStars = (selectedRate: number, onRatingChange?: (rating: number) => void) => {
-    return (
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            size={30}
-            className={`cursor-pointer transition-all ${
-              star <= selectedRate
-                ? "text-yellow-500 fill-yellow-500"
-                : "text-gray-300 hover:text-yellow-300"
-            }`}
-            onClick={() => onRatingChange && onRatingChange(star)}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  // Add this function to handle user selection
-  const handleUserSelect = (user: any) => {
-    setSelectedUser(user);
-  };
-
-  // Add this function to handle rating submission
-  const handleRatingSubmit = async () => {
-    if (!selectedPost || !selectedUser || rating === 0) {
-      toast.error("Please select a user and provide a rating");
-      return;
-    }
-
-    try {
-      const response = await postsAPI.markAsPurchased(
-        selectedPost.id,
-        selectedUser.id,
-        rating,
-        ratingComment
-      );
-
-      if (response.success) {
-        toast.success("Post marked as purchased and rating submitted");
-        setShowPurchaseDialog(false);
-        setSelectedPost(null);
-        setSelectedUser(null);
-        setRating(0);
-        setRatingComment('');
-        // Refresh posts
-        loadPosts();
-      } else {
-        toast.error(response.message || "Failed to mark as purchased");
-      }
-    } catch (error: any) {
-      console.error("Error marking as purchased:", error);
-      toast.error(error.response?.data?.message || "Error marking as purchased");
-    }
-  };
-
-  // Modify the existing markAsPurchased function
-  const markAsPurchased = async (post: any) => {
-    setSelectedPost(post);
-    setShowPurchaseDialog(true);
   };
 
   if (loading) {
@@ -473,7 +291,7 @@ const MyPosts: React.FC = () => {
                         className="h-7 text-xs flex-1"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openPurchaseDialog(post.id);
+                          handleMarkAsPurchased(post.id);
                         }}
                       >
                         Mark as Purchased
@@ -491,212 +309,6 @@ const MyPosts: React.FC = () => {
           </div>
         )}
       </div>
-      
-      {/* Participants Selection Dialog */}
-      <Dialog open={isPurchaseDialogOpen} onOpenChange={setIsPurchaseDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Mark Item as Purchased</DialogTitle>
-            <DialogDescription>
-              Select who you purchased this item from. You'll be able to rate them next.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {loadingParticipants ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : chatParticipants.length > 0 ? (
-              <>
-                <h4 className="text-sm font-medium mb-2">From whom did you purchase this item?</h4>
-                <ScrollArea className="h-[240px] pr-4">
-                  <div className="space-y-2">
-                    {chatParticipants.map(participant => (
-                      <div
-                        key={participant.id}
-                        className="flex items-center p-3 rounded-md cursor-pointer hover:bg-accent/50 border border-transparent hover:border-primary"
-                        onClick={() => handleSelectSeller(participant)}
-                      >
-                        <Avatar className="h-10 w-10 mr-3">
-                          <AvatarImage src={getAvatarUrl(participant.avatar)} />
-                          <AvatarFallback>
-                            {participant.name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-medium">{participant.name}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                <p>No chat participants found</p>
-                <p className="text-sm mt-2">You must have active conversations to mark a post as purchased</p>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsPurchaseDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Rating Dialog */}
-      <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rate Your Experience</DialogTitle>
-            <DialogDescription>
-              {selectedSeller && `How was your experience with ${selectedSeller.name}? Your rating will help others.`}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-6 flex flex-col items-center gap-6">
-            {selectedSeller && (
-              <div className="flex flex-col items-center">
-                <Avatar className="h-16 w-16 mb-2">
-                  <AvatarImage src={getAvatarUrl(selectedSeller.avatar)} />
-                  <AvatarFallback>
-                    {selectedSeller.name?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <h3 className="text-lg font-semibold">{selectedSeller.name}</h3>
-              </div>
-            )}
-            
-            <div className="flex flex-col items-center gap-2 w-full">
-              <div className="text-center mb-2">
-                <p className="text-muted-foreground mb-4">Tap to select your rating</p>
-                {renderRatingStars(selectedRating, setSelectedRating)}
-              </div>
-              
-              <p className="text-lg font-medium mt-2">
-                {selectedRating === 0 && "Select a rating"}
-                {selectedRating === 1 && "Poor"}
-                {selectedRating === 2 && "Fair"}
-                {selectedRating === 3 && "Good"}
-                {selectedRating === 4 && "Very Good"}
-                {selectedRating === 5 && "Excellent"}
-              </p>
-
-              {/* Add comment field */}
-              <div className="w-full mt-4">
-                <Label htmlFor="rating-comment">Add a comment (optional)</Label>
-                <Textarea
-                  id="rating-comment"
-                  value={ratingComment}
-                  onChange={(e) => setRatingComment(e.target.value)}
-                  placeholder="Share your experience with this seller..."
-                  className="mt-2"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsRatingDialogOpen(false);
-                setIsPurchaseDialogOpen(true);
-              }}
-            >
-              Back
-            </Button>
-            <Button 
-              onClick={() => handleRatingComplete(selectedRating)}
-              disabled={selectedRating === 0}
-            >
-              Submit Rating & Complete Purchase
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Purchase Dialog */}
-      <Dialog open={showPurchaseDialog} onOpenChange={setShowPurchaseDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark as Purchased</DialogTitle>
-            <DialogDescription>
-              Select the user who purchased this item and provide a rating
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {/* User Selection */}
-            <div>
-              <Label>Select User</Label>
-              <Select
-                value={selectedUser?.id}
-                onValueChange={(value) => {
-                  const user = chatParticipants.find(p => p.id === value);
-                  handleUserSelect(user);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent>
-                  {chatParticipants.map((participant) => (
-                    <SelectItem key={participant.id} value={participant.id}>
-                      {participant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Rating */}
-            <div>
-              <Label>Rating</Label>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    size={24}
-                    className={`cursor-pointer ${
-                      star <= rating
-                        ? "text-yellow-400 fill-yellow-400"
-                        : "text-gray-300"
-                    }`}
-                    onClick={() => setRating(star)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Rating Comment */}
-            <div>
-              <Label>Comment (Optional)</Label>
-              <Textarea
-                value={ratingComment}
-                onChange={(e) => setRatingComment(e.target.value)}
-                placeholder="Add a comment about your experience..."
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPurchaseDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRatingSubmit}>
-              Submit Rating & Mark as Purchased
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       
       <Navigation />
     </div>

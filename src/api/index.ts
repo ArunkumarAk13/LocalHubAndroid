@@ -34,10 +34,10 @@ const configureAxiosForNative = () => {
   }
 
   return {
-    baseURL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
     withCredentials: true
   };
 };
@@ -484,16 +484,8 @@ export const postsAPI = {
     const response = await api.delete(`/api/posts/${postId}`);
     return response.data;
   },
-  markAsPurchased: async (postId: string, sellerId?: string, rating?: number, comment?: string) => {
-    const data: { sellerId?: string; rating?: number; comment?: string } = {};
-    
-    if (sellerId) data.sellerId = sellerId;
-    if (rating) data.rating = rating;
-    if (comment) data.comment = comment;
-    
-    console.log('Sending rating data:', data);
-    
-    const response = await api.patch(`/api/posts/${postId}/purchased`, data);
+  markAsPurchased: async (postId: string) => {
+    const response = await api.patch(`/api/posts/${postId}/purchased`);
     return response.data;
   },
 };

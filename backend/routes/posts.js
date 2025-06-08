@@ -325,10 +325,6 @@ router.delete('/:id', auth, async (req, res, next) => {
 // Mark post as purchased
 router.patch('/:id/purchased', auth, async (req, res, next) => {
   try {
-    const { sellerId, rating, comment } = req.body;
-    
-    console.log('Received rating data:', { sellerId, rating, comment });
-    
     // Check if post exists and belongs to user
     const postResult = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
@@ -354,72 +350,6 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
         'UPDATE posts SET purchased = $1 WHERE id = $2',
         [newStatus, req.params.id]
       );
-
-      // If rating is provided, update user rating
-      if (rating && sellerId) {
-        console.log('Processing rating update for seller:', sellerId);
-        
-        // Check if rating already exists for this post
-        const existingRating = await db.query(
-          'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
-          [req.params.id, req.user.id]
-        );
-
-        if (existingRating.rows.length > 0) {
-          console.log('Updating existing rating:', existingRating.rows[0]);
-          // Update existing rating
-          await db.query(
-            'UPDATE ratings SET rating = $1, comment = $2 WHERE post_id = $3 AND user_id = $4',
-            [rating, comment, req.params.id, req.user.id]
-          );
-        } else {
-          console.log('Adding new rating');
-          // Add new rating
-          await db.query(
-            'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
-            [req.params.id, req.user.id, rating, comment]
-          );
-        }
-
-        // Debug: Check all ratings for this seller
-        const allRatings = await db.query(`
-          SELECT r.rating, r.post_id, p.user_id as seller_id
-          FROM ratings r
-          JOIN posts p ON r.post_id = p.id
-          WHERE p.user_id = $1 AND p.purchased = true
-        `, [sellerId]);
-        console.log('All ratings for seller:', allRatings.rows);
-
-        // Calculate and update user's average rating
-        const avgRatingResult = await db.query(`
-          WITH seller_ratings AS (
-            SELECT r.rating
-            FROM ratings r
-            JOIN posts p ON r.post_id = p.id
-            WHERE p.user_id = $1 AND p.purchased = true
-          )
-          SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) as avg_rating
-          FROM seller_ratings
-        `, [sellerId]);
-
-        const avgRating = avgRatingResult.rows[0].avg_rating;
-        console.log('Calculated average rating:', avgRating);
-
-        // Update user's rating
-        await db.query(
-          'UPDATE users SET rating = $1 WHERE id = $2',
-          [avgRating, sellerId]
-        );
-
-        // Log the rating update for debugging
-        console.log('Rating update complete:', {
-          postId: req.params.id,
-          sellerId,
-          rating,
-          avgRating,
-          comment
-        });
-      }
       
       await db.query('COMMIT');
       

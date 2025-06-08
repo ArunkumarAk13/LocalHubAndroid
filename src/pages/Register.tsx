@@ -156,7 +156,7 @@ const Register = () => {
       setIsLoading(false);
     }
   };
-
+  
   // Handle OTP verification
   const handleVerifyOTP = async () => {
     if (!registrationData || !otp) {
@@ -167,7 +167,7 @@ const Register = () => {
       });
       return;
     }
-
+    
     setIsLoading(true);
     try {
       const response = await authAPI.verifyEmailOTP(registrationData.email, otp);
@@ -189,7 +189,7 @@ const Register = () => {
             navigate('/login', { replace: true });
           }, 1000);
         } else {
-          navigate('/login', { replace: true });
+        navigate('/login', { replace: true });
         }
       } else {
         toast({
@@ -208,7 +208,7 @@ const Register = () => {
       setIsLoading(false);
     }
   };
-
+  
   // Cleanup function
   React.useEffect(() => {
     return () => {
@@ -216,7 +216,7 @@ const Register = () => {
       form.reset();
       setShowOTPInput(false);
       setRegistrationData(null);
-    };
+  };
   }, []);
 
   return (
@@ -229,30 +229,30 @@ const Register = () => {
         
         <Card className="border-none shadow-lg">
           <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {!showOTPInput ? (
                   <>
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Name</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                              <Input
-                                {...field}
-                                className="pl-10"
-                                placeholder="Enter your name"
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              className="pl-10"
+                              placeholder="Enter your name"
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                     <FormField
                       control={form.control}
@@ -276,124 +276,124 @@ const Register = () => {
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="phoneNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                              <Input
-                                {...field}
-                                className="pl-10"
-                                placeholder="Enter your phone number"
-                                onChange={(e) => handlePhoneChange(e, field.onChange)}
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              className="pl-10"
+                              placeholder="Enter your phone number"
+                              onChange={(e) => handlePhoneChange(e, field.onChange)}
                                 maxLength={10}
                                 inputMode="numeric"
-                              />
-                            </div>
-                          </FormControl>
-                          {phoneError && (
-                            <p className="text-sm text-destructive">{phoneError}</p>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            />
+                          </div>
+                        </FormControl>
+                        {phoneError && (
+                          <p className="text-sm text-destructive">{phoneError}</p>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                              <Input
-                                {...field}
-                                type={showPassword ? "text" : "password"}
-                                className="pl-10 pr-10"
-                                placeholder="Enter your password"
-                                onFocus={() => setIsPasswordFocused(true)}
-                                onBlur={() => setIsPasswordFocused(false)}
-                                onChange={(e) => {
-                                  field.onChange(e);
-                                  checkPasswordRequirements(e.target.value);
-                                }}
-                              />
-                              <button
-                                type="button"
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                                onClick={() => setShowPassword(!showPassword)}
-                              >
-                                {showPassword ? (
-                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <Eye className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </button>
-                            </div>
-                          </FormControl>
-                          {isPasswordFocused && (
-                            <div className="mt-2 space-y-1 text-sm">
-                              <p className={passwordRequirements.minLength ? "text-green-500" : "text-muted-foreground"}>
-                                • At least 8 characters
-                              </p>
-                              <p className={passwordRequirements.hasUppercase ? "text-green-500" : "text-muted-foreground"}>
-                                • One uppercase letter
-                              </p>
-                              <p className={passwordRequirements.hasNumber ? "text-green-500" : "text-muted-foreground"}>
-                                • One number
-                              </p>
-                              <p className={passwordRequirements.hasSymbol ? "text-green-500" : "text-muted-foreground"}>
-                                • One special character
-                              </p>
-                            </div>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              type={showPassword ? "text" : "password"}
+                              className="pl-10 pr-10"
+                              placeholder="Enter your password"
+                              onFocus={() => setIsPasswordFocused(true)}
+                              onBlur={() => setIsPasswordFocused(false)}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                checkPasswordRequirements(e.target.value);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </button>
+                          </div>
+                        </FormControl>
+                        {isPasswordFocused && (
+                          <div className="mt-2 space-y-1 text-sm">
+                            <p className={passwordRequirements.minLength ? "text-green-500" : "text-muted-foreground"}>
+                              • At least 8 characters
+                            </p>
+                            <p className={passwordRequirements.hasUppercase ? "text-green-500" : "text-muted-foreground"}>
+                              • One uppercase letter
+                            </p>
+                            <p className={passwordRequirements.hasNumber ? "text-green-500" : "text-muted-foreground"}>
+                              • One number
+                            </p>
+                            <p className={passwordRequirements.hasSymbol ? "text-green-500" : "text-muted-foreground"}>
+                              • One special character
+                            </p>
+                          </div>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={form.control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirm Password</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                              <Input
-                                {...field}
-                                type={showConfirmPassword ? "text" : "password"}
-                                className="pl-10 pr-10"
-                                placeholder="Confirm your password"
-                              />
-                              <button
-                                type="button"
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              >
-                                {showConfirmPassword ? (
-                                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <Eye className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </button>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              {...field}
+                              type={showConfirmPassword ? "text" : "password"}
+                              className="pl-10 pr-10"
+                              placeholder="Confirm your password"
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </button>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <Button 
-                      type="submit" 
-                      className="w-full h-12 text-base font-medium bg-primary hover:bg-primary/90"
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 text-base font-medium bg-primary hover:bg-primary/90"
                       disabled={isLoading}
                     >
                       {isLoading ? (
@@ -429,7 +429,7 @@ const Register = () => {
                             </FormItem>
                           )}
                         />
-                      </div>
+                  </div>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-4">
                       <Button
@@ -452,7 +452,7 @@ const Register = () => {
                       </Button>
                     </CardFooter>
                   </Card>
-                )}
+            )}
               </form>
             </Form>
           </CardContent>
