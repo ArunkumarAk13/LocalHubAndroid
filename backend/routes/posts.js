@@ -357,21 +357,21 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
       if (rating && sellerId) {
         // Check if rating already exists for this post
         const existingRating = await db.query(
-          'SELECT * FROM ratings WHERE post_id = $1',
-          [req.params.id]
+          'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
+          [req.params.id, req.user.id]
         );
 
         if (existingRating.rows.length > 0) {
           // Update existing rating
           await db.query(
-            'UPDATE ratings SET rating = $1, comment = $2 WHERE post_id = $3',
-            [rating, comment, req.params.id]
+            'UPDATE ratings SET rating = $1, comment = $2 WHERE post_id = $3 AND user_id = $4',
+            [rating, comment, req.params.id, req.user.id]
           );
         } else {
           // Add new rating
           await db.query(
             'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
-            [req.params.id, sellerId, rating, comment]
+            [req.params.id, req.user.id, rating, comment]
           );
         }
 
@@ -390,6 +390,15 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
           'UPDATE users SET rating = $1 WHERE id = $2',
           [avgRating, sellerId]
         );
+
+        // Log the rating update for debugging
+        console.log('Rating update:', {
+          postId: req.params.id,
+          sellerId,
+          rating,
+          avgRating,
+          comment
+        });
       }
       
       await db.query('COMMIT');
