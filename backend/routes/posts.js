@@ -386,7 +386,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
           SELECT r.rating, r.post_id, p.user_id as seller_id
           FROM ratings r
           JOIN posts p ON r.post_id = p.id
-          WHERE p.user_id = $1
+          WHERE p.user_id = $1 AND p.purchased = true
         `, [sellerId]);
         console.log('All ratings for seller:', allRatings.rows);
 
@@ -396,7 +396,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
             SELECT r.rating
             FROM ratings r
             JOIN posts p ON r.post_id = p.id
-            WHERE p.user_id = $1
+            WHERE p.user_id = $1 AND p.purchased = true
           )
           SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) as avg_rating
           FROM seller_ratings
