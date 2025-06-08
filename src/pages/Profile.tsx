@@ -546,30 +546,6 @@ const Profile = () => {
       </Dialog>
       
       <Navigation />
-
-      <div className="mt-4 space-y-2">
-        <h3 className="text-lg font-semibold">Test Notifications</h3>
-        <div className="flex flex-wrap gap-2">
-          <Button 
-            onClick={() => testNotification('basic')}
-            variant="outline"
-          >
-            Test Basic Notification
-          </Button>
-          <Button 
-            onClick={() => testNotification('chat')}
-            variant="outline"
-          >
-            Test Chat Notification
-          </Button>
-          <Button 
-            onClick={() => testNotification('category')}
-            variant="outline"
-          >
-            Test Category Notification
-          </Button>
-        </div>
-      </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const db = require('../db');
+const notificationService = require('../services/notificationService');
 
 // Get all chats for the current user
 router.get('/', auth, async (req, res) => {
@@ -171,6 +172,9 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to access this chat' });
     }
 
+    const chat = chatCheck.rows[0];
+    const receiverId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
+
     // Insert the message
     const result = await db.query(
       `INSERT INTO messages (chat_id, sender_id, content)
@@ -184,6 +188,9 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       'UPDATE chats SET updated_at = NOW() WHERE id = $1',
       [chatId]
     );
+
+    // Send notification to receiver
+    await notificationService.sendChatNotification(userId, receiverId, content);
 
     res.json(result.rows[0]);
   } catch (error) {
