@@ -277,14 +277,6 @@ router.post('/subscribe/category', auth, async (req, res) => {
             [req.user.id, categoryId]
         );
         
-        // Send notification about subscription
-        await notificationService.sendNotification(
-            req.user.id,
-            `Category Subscription: ${categoryName}`,
-            `You are now subscribed to new posts in the ${categoryName} category. You will be notified when new items are posted in this category.`,
-            'notification'
-        );
-        
         res.status(201).json({
             success: true,
             message: `Subscribed to ${categoryName} notifications`

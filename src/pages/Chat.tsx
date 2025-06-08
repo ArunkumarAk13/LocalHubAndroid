@@ -11,9 +11,9 @@ import { Search, ArrowLeft } from "lucide-react";
 import { API_BASE_URL } from '@/api/config';
 
 interface Message {
-  id: string;
+  id: string | number;
   content: string;
-  sender_id: string;
+  sender_id: string | number;
   created_at: string;
 }
 
@@ -39,8 +39,8 @@ const Chat = () => {
   const [currentChatDetails, setCurrentChatDetails] = useState<Chat | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   // Fetch all chats and set current chat details
   useEffect(() => {
@@ -55,7 +55,6 @@ const Chat = () => {
         const data = await response.json();
         setChats(data);
         
-        // If we have a selected chat ID, find its details from the chats list
         if (selectedChat) {
           const chatDetails = data.find((chat: Chat) => chat.id === selectedChat);
           if (chatDetails) {
@@ -68,7 +67,6 @@ const Chat = () => {
     };
 
     fetchChats();
-    // Poll for new messages every 5 seconds
     const interval = setInterval(fetchChats, 5000);
     return () => clearInterval(interval);
   }, [selectedChat]);
@@ -113,7 +111,7 @@ const Chat = () => {
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChat) return;
-      setIsLoadingMessages(true);
+      
       try {
         const response = await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/messages`, {
           headers: {
@@ -122,15 +120,26 @@ const Chat = () => {
         });
         if (!response.ok) throw new Error("Failed to fetch messages");
         const data = await response.json();
-        setMessages(data);
-
-        // Mark messages as read
-        await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/read`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+        
+        // Only update if there are new messages
+        if (data.length > 0) {
+          const lastMessage = data[data.length - 1];
+          const currentLastId = lastMessageIdRef.current;
+          const newLastId = String(lastMessage.id);
+          
+          if (currentLastId !== newLastId) {
+            setMessages(data);
+            lastMessageIdRef.current = newLastId;
+            
+            // Mark messages as read
+            await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/read`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+            });
+          }
+        }
 
         // Scroll to bottom after messages are loaded
         setTimeout(() => {
@@ -141,8 +150,6 @@ const Chat = () => {
         }, 100);
       } catch (error) {
         console.error("Error fetching messages:", error);
-      } finally {
-        setIsLoadingMessages(false);
       }
     };
 
@@ -151,17 +158,21 @@ const Chat = () => {
     return () => clearInterval(interval);
   }, [selectedChat]);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
-    if (scrollContainer) {
-      scrollContainer.scrollTop = scrollContainer.scrollHeight;
-    }
-  }, [messages]);
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !selectedChat) return;
+    if (!message.trim() || !selectedChat || !user?.id) return;
+
+    const tempId = Date.now().toString();
+    const optimisticMessage: Message = {
+      id: tempId,
+      content: message,
+      sender_id: String(user.id),
+      created_at: new Date().toISOString()
+    };
+
+    // Optimistically add message to UI
+    setMessages(prev => [...prev, optimisticMessage]);
+    setMessage("");
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/chats/${selectedChat}/messages`, {
@@ -176,10 +187,14 @@ const Chat = () => {
       if (!response.ok) throw new Error("Failed to send message");
       
       const sentMessage = await response.json();
-      setMessages(prev => [...prev, sentMessage]);
-      setMessage("");
+      // Replace optimistic message with real one
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId ? sentMessage : msg
+      ));
     } catch (error) {
       console.error("Error sending message:", error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
     }
   };
 
@@ -190,7 +205,7 @@ const Chat = () => {
 
   const filteredChats = chats.filter(chat =>
     chat.participant_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-    chat.participant_id !== user?.id // Filter out current user's chat
+    chat.participant_id !== user?.id
   );
 
   if (!selectedChat) {
@@ -301,41 +316,35 @@ const Chat = () => {
           </div>
         </div>
         <ScrollArea ref={scrollRef} className="flex-1 p-4">
-          {isLoadingMessages ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Loading messages...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {messages.length > 0 ? (
-                messages.map((msg) => (
+          <div className="space-y-4">
+            {messages.length > 0 ? (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${
+                    String(msg.sender_id) === String(user?.id) ? "justify-end" : "justify-start"
+                  }`}
+                >
                   <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.sender_id === user?.id ? "justify-end" : "justify-start"
+                    className={`max-w-[70%] rounded-lg p-3 ${
+                      String(msg.sender_id) === String(user?.id)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
                     }`}
                   >
-                    <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        msg.sender_id === user?.id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <p>{msg.content}</p>
-                      <span className="text-xs opacity-70 mt-1 block">
-                        {format(new Date(msg.created_at), "HH:mm")}
-                      </span>
-                    </div>
+                    <p>{msg.content}</p>
+                    <span className="text-xs opacity-70 mt-1 block">
+                      {format(new Date(msg.created_at), "HH:mm")}
+                    </span>
                   </div>
-                ))
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">No messages yet</p>
                 </div>
-              )}
-            </div>
-          )}
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">No messages yet</p>
+              </div>
+            )}
+          </div>
         </ScrollArea>
         <form onSubmit={handleSendMessage} className="p-4 border-t">
           <div className="flex items-center space-x-2">

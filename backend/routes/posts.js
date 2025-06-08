@@ -259,18 +259,7 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     
     // Create notifications for subscribed users
     for (const user of subscribedUsersResult.rows) {
-      // Add to notifications table
-      await db.query(`
-        INSERT INTO notifications (user_id, title, description, post_id)
-        VALUES ($1, $2, $3, $4)
-      `, [
-        user.id,
-        `New Post in ${category}`,
-        `${title}\n\nA new item has been posted in the ${category} category.`,
-        postId
-      ]);
-
-      // Send push notification
+      // Send push notification and save to database using notification service
       await notificationService.sendCategoryNotification(
         user.id,
         category,
