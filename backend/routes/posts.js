@@ -383,7 +383,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 
         // Debug: Check all ratings for this seller
         const allRatings = await db.query(`
-          SELECT r.rating, p.id as post_id, p.user_id as post_user_id
+          SELECT r.rating, r.post_id, p.user_id as seller_id
           FROM ratings r
           JOIN posts p ON r.post_id = p.id
           WHERE p.user_id = $1
@@ -392,14 +392,14 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 
         // Calculate and update user's average rating
         const avgRatingResult = await db.query(`
-          WITH user_ratings AS (
+          WITH seller_ratings AS (
             SELECT r.rating
             FROM ratings r
             JOIN posts p ON r.post_id = p.id
             WHERE p.user_id = $1
           )
           SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) as avg_rating
-          FROM user_ratings
+          FROM seller_ratings
         `, [sellerId]);
 
         const avgRating = avgRatingResult.rows[0].avg_rating;
