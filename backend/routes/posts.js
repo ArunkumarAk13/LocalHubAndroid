@@ -355,23 +355,41 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 
       // If rating is provided, update user rating
       if (rating && sellerId) {
-        // Add rating to ratings table
-        await db.query(
-          'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
-          [req.params.id, sellerId, rating, comment]
+        // Check if rating already exists for this post
+        const existingRating = await db.query(
+          'SELECT * FROM ratings WHERE post_id = $1',
+          [req.params.id]
         );
 
-        // Update user's average rating
-        await db.query(`
-          UPDATE users 
-          SET rating = (
-            SELECT COALESCE(ROUND(AVG(r.rating)::numeric, 1), 0)
-            FROM ratings r
-            JOIN posts p ON r.post_id = p.id
-            WHERE p.user_id = $1
-          )
-          WHERE id = $1
+        if (existingRating.rows.length > 0) {
+          // Update existing rating
+          await db.query(
+            'UPDATE ratings SET rating = $1, comment = $2 WHERE post_id = $3',
+            [rating, comment, req.params.id]
+          );
+        } else {
+          // Add new rating
+          await db.query(
+            'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
+            [req.params.id, sellerId, rating, comment]
+          );
+        }
+
+        // Calculate and update user's average rating
+        const avgRatingResult = await db.query(`
+          SELECT ROUND(AVG(r.rating)::numeric, 1) as avg_rating
+          FROM ratings r
+          JOIN posts p ON r.post_id = p.id
+          WHERE p.user_id = $1
         `, [sellerId]);
+
+        const avgRating = avgRatingResult.rows[0].avg_rating || 0;
+
+        // Update user's rating
+        await db.query(
+          'UPDATE users SET rating = $1 WHERE id = $2',
+          [avgRating, sellerId]
+        );
       }
       
       await db.query('COMMIT');
