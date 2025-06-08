@@ -366,7 +366,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
         );
 
         if (existingRating.rows.length > 0) {
-          console.log('Updating existing rating');
+          console.log('Updating existing rating:', existingRating.rows[0]);
           // Update existing rating
           await db.query(
             'UPDATE ratings SET rating = $1, comment = $2 WHERE post_id = $3 AND user_id = $4',
@@ -380,6 +380,15 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
             [req.params.id, req.user.id, rating, comment]
           );
         }
+
+        // Debug: Check all ratings for this seller
+        const allRatings = await db.query(`
+          SELECT r.rating, p.id as post_id, p.user_id as post_user_id
+          FROM ratings r
+          JOIN posts p ON r.post_id = p.id
+          WHERE p.user_id = $1
+        `, [sellerId]);
+        console.log('All ratings for seller:', allRatings.rows);
 
         // Calculate and update user's average rating
         const avgRatingResult = await db.query(`
