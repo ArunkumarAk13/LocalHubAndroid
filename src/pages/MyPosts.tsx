@@ -239,7 +239,7 @@ const MyPosts: React.FC = () => {
         selectedPostId, 
         selectedSeller.id,
         rating,
-        ratingComment // Add the comment to the API call
+        ratingComment
       );
       
       if (response.success) {

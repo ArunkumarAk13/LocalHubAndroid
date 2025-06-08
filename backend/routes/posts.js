@@ -327,6 +327,8 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
   try {
     const { sellerId, rating, comment } = req.body;
     
+    console.log('Received rating data:', { sellerId, rating, comment });
+    
     // Check if post exists and belongs to user
     const postResult = await db.query(
       'SELECT * FROM posts WHERE id = $1 AND user_id = $2',
@@ -355,6 +357,8 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 
       // If rating is provided, update user rating
       if (rating && sellerId) {
+        console.log('Processing rating update for seller:', sellerId);
+        
         // Check if rating already exists for this post
         const existingRating = await db.query(
           'SELECT * FROM ratings WHERE post_id = $1 AND user_id = $2',
@@ -362,12 +366,14 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
         );
 
         if (existingRating.rows.length > 0) {
+          console.log('Updating existing rating');
           // Update existing rating
           await db.query(
             'UPDATE ratings SET rating = $1, comment = $2 WHERE post_id = $3 AND user_id = $4',
             [rating, comment, req.params.id, req.user.id]
           );
         } else {
+          console.log('Adding new rating');
           // Add new rating
           await db.query(
             'INSERT INTO ratings (post_id, user_id, rating, comment) VALUES ($1, $2, $3, $4)',
@@ -377,13 +383,18 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
 
         // Calculate and update user's average rating
         const avgRatingResult = await db.query(`
-          SELECT ROUND(AVG(r.rating)::numeric, 1) as avg_rating
-          FROM ratings r
-          JOIN posts p ON r.post_id = p.id
-          WHERE p.user_id = $1
+          WITH user_ratings AS (
+            SELECT r.rating
+            FROM ratings r
+            JOIN posts p ON r.post_id = p.id
+            WHERE p.user_id = $1
+          )
+          SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) as avg_rating
+          FROM user_ratings
         `, [sellerId]);
 
-        const avgRating = avgRatingResult.rows[0].avg_rating || 0;
+        const avgRating = avgRatingResult.rows[0].avg_rating;
+        console.log('Calculated average rating:', avgRating);
 
         // Update user's rating
         await db.query(
@@ -392,7 +403,7 @@ router.patch('/:id/purchased', auth, async (req, res, next) => {
         );
 
         // Log the rating update for debugging
-        console.log('Rating update:', {
+        console.log('Rating update complete:', {
           postId: req.params.id,
           sellerId,
           rating,

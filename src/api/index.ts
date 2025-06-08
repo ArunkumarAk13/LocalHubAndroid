@@ -491,6 +491,8 @@ export const postsAPI = {
     if (rating) data.rating = rating;
     if (comment) data.comment = comment;
     
+    console.log('Sending rating data:', data);
+    
     const response = await api.patch(`/api/posts/${postId}/purchased`, data);
     return response.data;
   },
