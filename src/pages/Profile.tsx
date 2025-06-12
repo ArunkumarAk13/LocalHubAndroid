@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Star, FileImage, Edit, Bell, Pencil, Upload, Settings as SettingsIcon, MapPin } from "lucide-react";
+import { FileImage, Edit, Bell, Pencil, Upload, Settings as SettingsIcon, MapPin } from "lucide-react";
 import { usersAPI } from "@/api";
 import {
   Dialog,
@@ -37,29 +37,6 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Rating stars display
-  const renderRatingStars = (rating: number = 0) => {
-    // Ensure rating is always a number before using toFixed
-    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
-    
-    return (
-      <div className="flex items-center">
-        {[...Array(5)].map((_, index) => (
-          <Star
-            key={index}
-            size={20}
-            className={`${
-              index < Math.round(numericRating)
-                ? "text-accent fill-accent"
-                : "text-muted-foreground"
-            }`}
-          />
-        ))}
-        <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
-      </div>
-    );
-  };
-
   // Fetch my posts and subscribed categories on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -81,7 +58,6 @@ const Profile = () => {
               user.avatar = profileResponse.user.avatar;
               user.phone_number = profileResponse.user.phone_number;
               user.location = profileResponse.user.location;
-              user.rating = profileResponse.user.rating;
               user.created_at = profileResponse.user.created_at;
               console.log('Updated user data:', user);
             }
@@ -153,161 +129,31 @@ const Profile = () => {
       console.log('Profile update response:', result);
 
       if (result.success) {
-        toast.success("Profile updated successfully");
-        setIsEditDialogOpen(false);
-        // Reset form
-        setEditForm({
-          name: result.user.name,
-          avatar: result.user.avatar,
-          phoneNumber: result.user.phone_number,
-          location: result.user.location
-        });
-        // Update the user context
+        // Update user data with the response
         if (user) {
           user.name = result.user.name;
           user.avatar = result.user.avatar;
           user.phone_number = result.user.phone_number;
           user.location = result.user.location;
         }
+        setIsEditDialogOpen(false);
+        toast.success("Profile updated successfully");
       } else {
         throw new Error(result.message || "Failed to update profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error(error.message || "Failed to update profile. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Failed to update profile");
     } finally {
       setLoading(false);
     }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      const options = {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      };
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          try {
-            // Use reverse geocoding to get address
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude.toString()}&lon=${longitude.toString()}`
-            );
-            const data = await response.json();
-            const address = data.display_name;
-            setEditForm(prev => ({ ...prev, location: address }));
-          } catch (error) {
-            console.error('Error getting address:', error);
-            toast.error('Failed to get address from coordinates');
-          }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          let errorMessage = 'Failed to get current location';
-          
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = 'Location permission denied. Please enable location access in your device settings.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Location information is unavailable. Please try again.';
-              break;
-            case error.TIMEOUT:
-              errorMessage = 'Location request timed out. Please try again.';
-              break;
-            default:
-              errorMessage = 'An unknown error occurred while getting location.';
-          }
-          
-          toast.error(errorMessage);
-        },
-        options
-      );
-    } else {
-      toast.error('Geolocation is not supported by your browser or device');
-    }
-  };
-
-  // Cleanup function to revoke object URLs when component unmounts or when dialog closes
-  useEffect(() => {
-    return () => {
-      // Revoke any object URLs created for previews
-      if (editForm.avatar && editForm.avatar.startsWith('blob:')) {
-        console.log('Revoking blob URL:', editForm.avatar);
-        URL.revokeObjectURL(editForm.avatar);
-      }
-    };
-  }, [editForm.avatar]);
-
-  // Reset form when dialog closes
-  useEffect(() => {
-    if (!isEditDialogOpen) {
-      setEditForm({
-        name: user?.name || "",
-        avatar: user?.avatar || "",
-        phoneNumber: user?.phone_number || "",
-        location: user?.location || ""
-      });
-    }
-  }, [isEditDialogOpen, user]);
-
   const getAvatarUrl = (url: string) => {
-    console.log('Getting avatar URL for:', url);
-    if (!url) return "https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=";
-    if (url.startsWith('blob:')) return url;
+    if (!url) return 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=';
     if (url.startsWith('http')) return url;
-    return `${API_BASE_URL}${url}`;
-  };
-
-  const testNotification = async (type: string) => {
-    try {
-      console.log('Sending test notification of type:', type);
-      const response = await usersAPI.post('/api/users/test-notification', { type });
-      
-      if (response.success) {
-        toast.success(response.message || 'Test notification sent!');
-      } else {
-        // Create detailed error object
-        const errorDetails = {
-          type,
-          response: {
-            message: response.message,
-            error: response.error
-          }
-        };
-        
-        // Log stringified error details
-        console.error('Test notification error:', JSON.stringify(errorDetails, null, 2));
-        
-        // Display a user-friendly error message
-        const errorMessage = response.error?.data?.message || 
-                           response.message || 
-                           'Failed to send test notification';
-        toast.error(errorMessage);
-      }
-    } catch (error: any) {
-      // Create detailed error object
-      const errorDetails = {
-        type,
-        error: {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status
-        }
-      };
-      
-      // Log stringified error details
-      console.error('Error sending test notification:', JSON.stringify(errorDetails, null, 2));
-      
-      // Display a user-friendly error message
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Failed to send test notification';
-      toast.error(errorMessage);
-    }
+    if (url.startsWith('/uploads')) return `${API_BASE_URL}${url}`;
+    return `${API_BASE_URL}/uploads/avatars/${url}`;
   };
 
   return (
@@ -353,9 +199,6 @@ const Profile = () => {
                 </a>
               </div>
             )}
-            <div className="mt-2">
-              {renderRatingStars(user?.rating || 0)}
-            </div>
           </CardHeader>
           
           <CardContent className="py-6">
@@ -491,34 +334,18 @@ const Profile = () => {
                 id="phoneNumber"
                 value={editForm.phoneNumber}
                 onChange={(e) => setEditForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
-                placeholder="+1234567890"
+                placeholder="Your phone number"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="location">Location</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                    <MapPin size={18} />
-                  </div>
-                  <Input
-                    id="location"
-                    value={editForm.location}
-                    disabled
-                    placeholder="Click 'Get Current Location' to set your location"
-                    className="pl-10 bg-muted cursor-not-allowed"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={getCurrentLocation}
-                  className="whitespace-nowrap"
-                >
-                  Get Current Location
-                </Button>
-              </div>
+              <Input
+                id="location"
+                value={editForm.location}
+                onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="Your location"
+              />
             </div>
           </div>
           

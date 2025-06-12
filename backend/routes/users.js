@@ -167,6 +167,7 @@ router.get('/notifications', auth, async (req, res, next) => {
       LEFT JOIN posts p ON n.post_id = p.id
       LEFT JOIN categories c ON p.category_id = c.id
       WHERE n.user_id = $1
+      AND n.type != 'chat'
       ORDER BY n.created_at DESC
     `, [req.user.id]);
 

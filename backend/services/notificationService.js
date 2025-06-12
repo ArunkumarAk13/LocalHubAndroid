@@ -86,14 +86,31 @@ class NotificationService {
                 return false;
             }
 
-            // Send notification
-            return await this.sendNotification(
-                receiverId,
-                `New message from ${senderName}`,
-                message,
-                'chat',
-                chatId.toString()
+            // Send push notification only, don't save to database
+            const notificationData = {
+                app_id: this.ONESIGNAL_APP_ID,
+                include_player_ids: [playerId],
+                headings: { en: `New message from ${senderName}` },
+                contents: { en: message },
+                data: {
+                    type: 'chat',
+                    target_id: chatId.toString()
+                }
+            };
+
+            // Send notification via OneSignal API
+            const response = await axios.post(
+                'https://onesignal.com/api/v1/notifications',
+                notificationData,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Basic ${this.ONESIGNAL_REST_API_KEY}`
+                    }
+                }
             );
+
+            return response.data;
         } catch (error) {
             console.error('Error sending chat notification:', error);
             return false;

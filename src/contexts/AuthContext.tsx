@@ -12,19 +12,18 @@ export interface User {
   email: string;
   avatar: string;
   phone_number: string;
-  rating?: number;
   created_at?: string;
   firebaseUid?: string;
   location?: string;
 }
 
 // Define the context type
-interface AuthContextType {
+export interface AuthContextType {
   user: User | null;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
-  isAuthenticated: boolean;
 }
 
 // Create the context
@@ -221,10 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        isLoading,
         login,
         register,
         logout,
-        isAuthenticated: !!user,
       }}
     >
       {children}

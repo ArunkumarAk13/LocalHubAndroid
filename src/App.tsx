@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,15 +17,31 @@ import Register from "./pages/Register";
 import Notifications from "./pages/Notifications";
 import Chat from "./pages/Chat";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 const queryClient = new QueryClient();
 
+// Add back button handler
+const handleBackButton = () => {
+  if (Capacitor.isNativePlatform()) {
+    CapacitorApp.addListener('backButton', () => {
+      CapacitorApp.exitApp();
+    });
+  }
+};
+
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { user, isLoading } = useAuth();
+  const location = useLocation();
   
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (isLoading) {
+    return null;
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   return <>{children}</>;
@@ -37,6 +54,22 @@ const AppRoutes = () => {
   const isChatPage = location.pathname.startsWith("/chat");
   const isIndexPage = location.pathname === "/";
   const hideNavbar = isAuthPage || isChatPage || !isIndexPage;
+  
+  // Handle back button press
+  React.useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      // Listen for the exitApp event from Android
+      const handleExitApp = () => {
+        CapacitorApp.exitApp();
+      };
+
+      window.addEventListener('exitApp', handleExitApp);
+
+      return () => {
+        window.removeEventListener('exitApp', handleExitApp);
+      };
+    }
+  }, []);
   
   return (
     <>
@@ -62,18 +95,24 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    handleBackButton();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
