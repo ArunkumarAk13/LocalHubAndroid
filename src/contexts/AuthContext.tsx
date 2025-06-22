@@ -12,6 +12,7 @@ export interface User {
   email: string;
   avatar: string;
   phone_number: string;
+  rating?: number;
   created_at?: string;
   firebaseUid?: string;
   location?: string;
@@ -21,6 +22,7 @@ export interface User {
 export interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, phoneNumber: string, password: string) => Promise<boolean>;
   logout: () => void;
@@ -198,16 +200,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('subscribedCategories');
     localStorage.removeItem('userNotifications');
     
-    // Clear OneSignal external user ID if on native platform
+    // Clear Android notifications on logout
     if (Capacitor.isNativePlatform()) {
-      // @ts-ignore - OneSignal is injected by the native platform
-      if (window.MainActivity) {
-        // @ts-ignore
-        window.MainActivity.setExternalUserId(null);
+      if (window.MainActivity && window.MainActivity.clearNotifications) {
+        window.MainActivity.clearNotifications();
       }
     }
     
-    toast.success('You have been logged out');
+    // Logout from OneSignal
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // @ts-ignore
+        window.MainActivity.setExternalUserId('');
+      } catch (error) {
+        console.error('Error logging out from OneSignal:', error);
+      }
+    }
+    
     navigate('/login');
   };
 
@@ -221,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoading,
+        isAuthenticated: user !== null,
         login,
         register,
         logout,

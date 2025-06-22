@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Phone } from 'lucide-react';
+import { Star, MessageCircle, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -27,6 +27,7 @@ export interface NeedCardProps {
     id: string;
     name: string;
     avatar: string;
+    rating: number;
     phone_number: string;
     settings?: {
       whatsappEnabled: boolean;
@@ -49,24 +50,61 @@ const NeedCard: React.FC<NeedCardProps> = ({
   onProfileClick
 }) => {
   const navigate = useNavigate();
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
-
-  const handleCardClick = () => {
+  const [showContactDialog, setShowContactDialog] = React.useState(false);
+  const [showChatBox, setShowChatBox] = React.useState(false);
+  const [currentChat, setCurrentChat] = React.useState<{ id: string; participant: any } | null>(null);
+  
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on profile section, contact button, or if dialog is open
+    if ((e.target as HTMLElement).closest('.profile-section') || 
+        (e.target as HTMLElement).closest('.contact-button') ||
+        showContactDialog) {
+      return;
+    }
     navigate(`/post/${id}`);
   };
 
-  const handleChatClick = (e: React.MouseEvent) => {
+  const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsChatOpen(true);
+    console.log('WhatsApp settings:', {
+      whatsappEnabled: postedBy.settings?.whatsappEnabled,
+      phoneNumber: postedBy.phone_number
+    });
+    if (postedBy.phone_number) {
+      const formattedNumber = postedBy.phone_number.replace(/\D/g, '');
+      const whatsappNumber = formattedNumber.startsWith('91') ? formattedNumber : `91${formattedNumber}`;
+      window.open(`https://wa.me/${whatsappNumber}`, '_blank');
+    } else {
+      toast.error("User's phone number is not available");
+    }
+    setShowContactDialog(false);
   };
 
-  const handlePhoneClick = (e: React.MouseEvent) => {
+  const handleLHChat = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!postedBy.phone_number) {
-      toast.error("Phone number not available");
-      return;
-    }
-    window.location.href = `tel:${postedBy.phone_number}`;
+    navigate(`/chat?participantId=${postedBy.id}`);
+    setShowContactDialog(false);
+  };
+
+  // Rating stars display
+  const renderRatingStars = (rating: number = 0) => {
+    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
+    
+    return (
+      <div className="flex items-center">
+        {[...Array(5)].map((_, index) => (
+          <Star
+            key={index}
+            size={14}
+            className={`${
+              index < Math.round(numericRating)
+                ? "text-accent fill-accent"
+                : "text-muted-foreground"
+            }`}
+          />
+        ))}
+      </div>
+    );
   };
 
   const getImageUrl = (url: string) => {
@@ -112,44 +150,69 @@ const NeedCard: React.FC<NeedCardProps> = ({
             </Avatar>
             <div>
               <p className="text-xs font-medium">{postedBy.name}</p>
+              {renderRatingStars(postedBy.rating)}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleChatClick}
-            >
-              <MessageCircle className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handlePhoneClick}
-            >
-              <Phone className="h-4 w-4" />
-            </Button>
-          </div>
+          <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="bg-brand-500 hover:bg-brand-600 text-xs px-2 py-1 h-6 mt-1 contact-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log('Contact button clicked, settings:', {
+                    whatsappEnabled: postedBy.settings?.whatsappEnabled,
+                    phoneNumber: postedBy.phone_number,
+                    settings: postedBy.settings
+                  });
+                  setShowContactDialog(true);
+                }}
+              >
+                Contact
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Choose Contact Method</DialogTitle>
+                <DialogDescription>
+                  Select how you would like to contact {postedBy.name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                {postedBy.settings?.whatsappEnabled && postedBy.phone_number && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={handleWhatsApp}
+                  >
+                    <Phone className="mr-2 h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={handleLHChat}
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  LH Chat
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardFooter>
       </Card>
 
-      <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Chat with {postedBy.name}</DialogTitle>
-            <DialogDescription>
-              Send a message to discuss this need
-            </DialogDescription>
-          </DialogHeader>
+      {showChatBox && currentChat && (
+        <div className="fixed bottom-4 right-4 z-50">
           <ChatBox
-            chatId={postedBy.id}
-            participant={postedBy}
-            onClose={() => setIsChatOpen(false)}
+            chatId={currentChat.id}
+            participant={currentChat.participant}
+            onClose={() => setShowChatBox(false)}
           />
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </>
   );
 };

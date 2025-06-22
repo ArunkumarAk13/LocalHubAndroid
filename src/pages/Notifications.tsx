@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { usersAPI } from '@/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Bell, FileText } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 interface Notification {
   id: string;
@@ -49,6 +50,13 @@ const Notifications: React.FC = () => {
     };
 
     loadNotifications();
+    
+    // Clear Android notifications when notifications page is opened
+    if (Capacitor.isNativePlatform()) {
+      if (window.MainActivity && window.MainActivity.clearNotifications) {
+        window.MainActivity.clearNotifications();
+      }
+    }
   }, [isAuthenticated, navigate]);
 
   const handleNotificationClick = async (notification: Notification) => {

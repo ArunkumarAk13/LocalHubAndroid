@@ -9,15 +9,8 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:usesCleartextTraffic="false"
-        android:enableOnBackInvokedCallback="true"
-        android:requestLegacyExternalStorage="true"
-        android:appComponentFactory="androidx.core.app.CoreComponentFactory">
-
-        <!-- Add security provider -->
-        <meta-data
-            android:name="com.google.android.gms.version"
-            android:value="@integer/google_play_services_version" />
+        android:usesCleartextTraffic="true"
+        android:enableOnBackInvokedCallback="true">
 
         <activity
             android:name=".RegistrationActivity"
@@ -48,11 +41,6 @@
             </intent-filter>
 
         </activity>
-
-        <!-- Add ProGuard configuration -->
-        <meta-data
-            android:name="android.webkit.WebView.EnableSafeBrowsing"
-            android:value="true" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -98,9 +86,4 @@
 
     <!-- Add telephony feature -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
-
-    <!-- Add necessary permissions -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 </manifest>

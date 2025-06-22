@@ -5,16 +5,17 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { Flag, MapPin } from "lucide-react";
+import { Star, Flag, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { usersAPI, postsAPI } from "@/api";
+import { usersAPI, ratingsAPI, postsAPI } from "@/api";
 
 interface UserData {
   id: string;
   name: string;
   avatar: string;
+  rating: number;
   postCount: number;
   createdAt?: string;
   badges?: string[];
@@ -47,6 +48,7 @@ const UserProfile = () => {
             id: response.user.id,
             name: response.user.name,
             avatar: response.user.avatar || 'https://media.istockphoto.com/id/1495088043/vector/user-profile-icon-avatar-or-person-icon-profile-picture-portrait-symbol-default-portrait.jpg?s=612x612&w=0&k=20&c=dhV2p1JwmloBTOaGAtaA3AW1KSnjsdMt7-U_3EZElZ0=',
+            rating: response.user.rating || 0,
             postCount: response.user.postCount || 0,
             createdAt: response.user.created_at,
             badges: ['Verified'],
@@ -83,6 +85,29 @@ const UserProfile = () => {
     // In a real app, this would submit the report to a backend
     toast("Report submitted. Thank you for helping keep our community safe");
     setReportReason('');
+  };
+
+  // Rating stars display
+  const renderRatingStars = (rating: number = 0) => {
+    // Ensure rating is always a number before using toFixed
+    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
+    
+    return (
+      <div className="flex items-center">
+        {[...Array(5)].map((_, index) => (
+          <Star
+            key={index}
+            size={20}
+            className={`${
+              index < Math.round(numericRating)
+                ? "text-accent fill-accent"
+                : "text-muted-foreground"
+            }`}
+          />
+        ))}
+        <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
+      </div>
+    );
   };
 
   if (loading) {
@@ -127,6 +152,9 @@ const UserProfile = () => {
                 </a>
               </div>
             )}
+            <div className="mt-2">
+              {renderRatingStars(userData.rating)}
+            </div>
             
             {/* User badges */}
             <div className="flex flex-wrap gap-2 mt-3 justify-center">

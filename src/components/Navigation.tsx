@@ -62,7 +62,6 @@ interface Notification {
   created_at: string;
   is_read: boolean;
   post_id: string;
-  type: string;
 }
 
 const Navigation: React.FC = () => {
@@ -74,7 +73,7 @@ const Navigation: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   
   const filteredCategories = CATEGORIES.filter(category =>
     category.toLowerCase().includes(categorySearch.toLowerCase())
@@ -89,11 +88,8 @@ const Navigation: React.FC = () => {
     try {
       const response = await usersAPI.getNotifications();
       if (response.success) {
-        // Filter out chat notifications
-        const nonChatNotifications = response.notifications.filter(
-          (notification: Notification) => notification.type !== 'chat'
-        );
-        setNotifications(nonChatNotifications);
+        setNotifications(response.notifications || []);
+        setUnreadCount(response.notifications.filter(n => !n.is_read).length);
       } else {
         console.error("Failed to fetch notifications:", response.message);
         if (isInitialLoad) {

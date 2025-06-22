@@ -46,12 +46,14 @@ class NotificationService {
                 }
             );
 
-            // Save notification to database
-            await db.query(
-                `INSERT INTO notifications (user_id, title, description, post_id)
-                VALUES ($1, $2, $3, $4)`,
-                [userId, title, message, targetId]
-            );
+            // Only save notification to database if it's not a chat notification
+            if (type !== 'chat') {
+                await db.query(
+                    `INSERT INTO notifications (user_id, title, description, post_id)
+                    VALUES ($1, $2, $3, $4)`,
+                    [userId, title, message, targetId]
+                );
+            }
 
             return response.data;
         } catch (error) {
@@ -86,31 +88,14 @@ class NotificationService {
                 return false;
             }
 
-            // Send push notification only, don't save to database
-            const notificationData = {
-                app_id: this.ONESIGNAL_APP_ID,
-                include_player_ids: [playerId],
-                headings: { en: `New message from ${senderName}` },
-                contents: { en: message },
-                data: {
-                    type: 'chat',
-                    target_id: chatId.toString()
-                }
-            };
-
-            // Send notification via OneSignal API
-            const response = await axios.post(
-                'https://onesignal.com/api/v1/notifications',
-                notificationData,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Basic ${this.ONESIGNAL_REST_API_KEY}`
-                    }
-                }
+            // Send notification
+            return await this.sendNotification(
+                receiverId,
+                `New message from ${senderName}`,
+                message,
+                'chat',
+                chatId.toString()
             );
-
-            return response.data;
         } catch (error) {
             console.error('Error sending chat notification:', error);
             return false;

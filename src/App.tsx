@@ -98,6 +98,14 @@ const AppRoutes = () => {
 const App = () => {
   useEffect(() => {
     handleBackButton();
+    
+    // Clear notifications when app is opened
+    if (Capacitor.isNativePlatform()) {
+      // Call Android method to clear notifications
+      if (window.MainActivity && window.MainActivity.clearNotifications) {
+        window.MainActivity.clearNotifications();
+      }
+    }
   }, []);
 
   return (
