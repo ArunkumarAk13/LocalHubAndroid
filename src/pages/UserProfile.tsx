@@ -87,29 +87,6 @@ const UserProfile = () => {
     setReportReason('');
   };
 
-  // Rating stars display
-  const renderRatingStars = (rating: number = 0) => {
-    // Ensure rating is always a number before using toFixed
-    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
-    
-    return (
-      <div className="flex items-center">
-        {[...Array(5)].map((_, index) => (
-          <Star
-            key={index}
-            size={20}
-            className={`${
-              index < Math.round(numericRating)
-                ? "text-accent fill-accent"
-                : "text-muted-foreground"
-            }`}
-          />
-        ))}
-        <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -152,9 +129,6 @@ const UserProfile = () => {
                 </a>
               </div>
             )}
-            <div className="mt-2">
-              {renderRatingStars(userData.rating)}
-            </div>
             
             {/* User badges */}
             <div className="flex flex-wrap gap-2 mt-3 justify-center">

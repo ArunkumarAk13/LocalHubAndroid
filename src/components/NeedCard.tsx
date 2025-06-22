@@ -27,7 +27,6 @@ export interface NeedCardProps {
     id: string;
     name: string;
     avatar: string;
-    rating: number;
     phone_number: string;
     settings?: {
       whatsappEnabled: boolean;
@@ -86,27 +85,6 @@ const NeedCard: React.FC<NeedCardProps> = ({
     setShowContactDialog(false);
   };
 
-  // Rating stars display
-  const renderRatingStars = (rating: number = 0) => {
-    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
-    
-    return (
-      <div className="flex items-center">
-        {[...Array(5)].map((_, index) => (
-          <Star
-            key={index}
-            size={14}
-            className={`${
-              index < Math.round(numericRating)
-                ? "text-accent fill-accent"
-                : "text-muted-foreground"
-            }`}
-          />
-        ))}
-      </div>
-    );
-  };
-
   const getImageUrl = (url: string) => {
     if (!url) return 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?q=80&w=500&auto=format&fit=crop';
     if (url.startsWith('http')) return url;
@@ -150,7 +128,6 @@ const NeedCard: React.FC<NeedCardProps> = ({
             </Avatar>
             <div>
               <p className="text-xs font-medium">{postedBy.name}</p>
-              {renderRatingStars(postedBy.rating)}
             </div>
           </div>
           <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>

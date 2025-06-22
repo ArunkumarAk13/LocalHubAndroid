@@ -29,24 +29,25 @@ android {
         buildConfigField "int", "NETWORK_READ_TIMEOUT_SECONDS", "30"
         buildConfigField "int", "NETWORK_CONNECT_TIMEOUT_SECONDS", "30"
     }
+
+    // Signing configurations
+    def keystorePropertiesFile = rootProject.file("keystore.properties")
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    }
+
     signingConfigs {
         release {
-            storeFile file("../localhub-release-key.jks")
-            storePassword "975876"
-            keyAlias "localhub"
-            keyPassword "975876"
-            enableV2Signing true
-            enableV3Signing true
-        }
-        debug {
-            storeFile file("D:/localhub/localhub 3 -App/localhub-release-key.jks")
-            storePassword "975876"
-            keyAlias "localhub"
-            keyPassword "975876"
-            enableV2Signing true
-            enableV3Signing true
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
         }
     }
+    
     buildTypes {
         release {
             signingConfig signingConfigs.release
@@ -56,7 +57,7 @@ android {
             buildConfigField "boolean", "ENABLE_LOGGING", "false"
         }
         debug {
-            signingConfig signingConfigs.release
+            // Debug builds are automatically signed with the debug keystore.
             debuggable true
             minifyEnabled false
             shrinkResources false

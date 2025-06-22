@@ -37,29 +37,6 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Rating stars display
-  const renderRatingStars = (rating: number = 0) => {
-    // Ensure rating is always a number before using toFixed
-    const numericRating = typeof rating === 'number' ? rating : Number(rating) || 0;
-    
-    return (
-      <div className="flex items-center">
-        {[...Array(5)].map((_, index) => (
-          <Star
-            key={index}
-            size={20}
-            className={`${
-              index < Math.round(numericRating)
-                ? "text-accent fill-accent"
-                : "text-muted-foreground"
-            }`}
-          />
-        ))}
-        <span className="ml-2 text-sm text-muted-foreground">({numericRating.toFixed(1)})</span>
-      </div>
-    );
-  };
-
   // Fetch my posts and subscribed categories on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -81,7 +58,6 @@ const Profile = () => {
               user.avatar = profileResponse.user.avatar;
               user.phone_number = profileResponse.user.phone_number;
               user.location = profileResponse.user.location;
-              user.rating = profileResponse.user.rating;
               user.created_at = profileResponse.user.created_at;
               console.log('Updated user data:', user);
             }
@@ -353,9 +329,6 @@ const Profile = () => {
                 </a>
               </div>
             )}
-            <div className="mt-2">
-              {renderRatingStars(user?.rating || 0)}
-            </div>
           </CardHeader>
           
           <CardContent className="py-6">

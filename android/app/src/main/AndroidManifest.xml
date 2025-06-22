@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -11,12 +10,11 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
-
         <activity
             android:name=".RegistrationActivity"
             android:exported="true"
-            android:theme="@style/AppTheme.NoActionBar">
-        </activity>
+            android:theme="@style/AppTheme.NoActionBar"
+        />
 
         <activity
             android:exported="true"
@@ -26,7 +24,6 @@
             android:theme="@style/AppTheme.NoActionBar"
             android:screenOrientation="portrait"
             android:launchMode="singleTask">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -39,7 +36,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="localhub-app.vercel.app" />
             </intent-filter>
-
         </activity>
 
         <provider
@@ -47,9 +43,7 @@
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"></meta-data>
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
     </application>
 
@@ -67,7 +61,7 @@
 
     <!-- For notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
+
     <!-- SMS permissions for Phone Authentication -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
@@ -79,7 +73,7 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
     <!-- Add these permissions -->
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="com.google.android.gms.permission.PLAY_INTEGRITY" />
