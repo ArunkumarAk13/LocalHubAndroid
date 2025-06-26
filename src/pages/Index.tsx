@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { postsAPI } from '@/api';
 import { Badge } from '@/components/ui/badge';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 const CATEGORIES = [
   // Electronics & Gadgets
@@ -64,6 +66,7 @@ const Index: React.FC = () => {
   const [categorySearch, setCategorySearch] = useState('');
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const backPressRef = React.useRef<number>(0);
 
   const filteredCategories = CATEGORIES.filter(category =>
     category.toLowerCase().includes(categorySearch.toLowerCase())
@@ -117,6 +120,25 @@ const Index: React.FC = () => {
 
     loadPosts();
   }, [selectedCategory, searchQuery, user?.id, user?.location]);
+
+  React.useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const onExitApp = (e: Event) => {
+      const now = Date.now();
+      if (backPressRef.current && now - backPressRef.current < 2000) {
+        CapacitorApp.exitApp();
+      } else {
+        backPressRef.current = now;
+        toast("Press back again to exit");
+      }
+    };
+
+    window.addEventListener('exitApp', onExitApp);
+    return () => {
+      window.removeEventListener('exitApp', onExitApp);
+    };
+  }, []);
 
   const handleViewProfile = (userId: string) => {
     navigate(`/profile/${userId}`);

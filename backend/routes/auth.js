@@ -20,9 +20,6 @@ const pool = new Pool({
     }
 });
 
-// Store pending verifications (in production, use Redis or similar)
-const pendingVerifications = new Map();
-
 // Generate OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -88,14 +85,18 @@ router.post('/send-email-otp', async (req, res) => {
     const otp = generateOTP();
     console.log('Generated OTP for', email);
     
-    // Store verification data with expiry
-    pendingVerifications.set(email, {
-      otp,
-      name,
-      phoneNumber,
-      password,
-      expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
-    });
+    // Store verification data with expiry in the database
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    await db.query(`
+      INSERT INTO pending_verifications (email, otp, name, phone_number, password, expires_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (email) DO UPDATE SET
+        otp = EXCLUDED.otp,
+        name = EXCLUDED.name,
+        phone_number = EXCLUDED.phone_number,
+        password = EXCLUDED.password,
+        expires_at = EXCLUDED.expires_at
+    `, [email, otp, name, phoneNumber, password, expiresAt]);
 
     console.log('Stored verification data for:', email);
 
@@ -116,9 +117,6 @@ router.post('/send-email-otp', async (req, res) => {
         code: emailError.code,
         stack: emailError.stack
       });
-      
-      // Clear the pending verification since email failed
-      pendingVerifications.delete(email);
       
       // Handle specific error codes
       switch (emailError.code) {
@@ -206,7 +204,11 @@ router.post('/verify-email-otp', async (req, res) => {
     }
 
     console.log('Checking verification data for email:', email);
-    const verificationData = pendingVerifications.get(email);
+    const result = await db.query(
+      'SELECT * FROM pending_verifications WHERE email = $1',
+      [email]
+    );
+    const verificationData = result.rows[0];
     
     if (!verificationData) {
       console.log('No verification data found for email:', email);
@@ -219,14 +221,14 @@ router.post('/verify-email-otp', async (req, res) => {
     console.log('Verification data found:', {
       email,
       hasOTP: !!verificationData.otp,
-      expiresAt: new Date(verificationData.expiresAt).toISOString(),
-      isExpired: Date.now() > verificationData.expiresAt,
+      expiresAt: new Date(verificationData.expires_at).toISOString(),
+      isExpired: Date.now() > new Date(verificationData.expires_at).getTime(),
       otpMatch: verificationData.otp === otp
     });
 
-    if (Date.now() > verificationData.expiresAt) {
+    if (Date.now() > new Date(verificationData.expires_at).getTime()) {
       console.log('Verification code expired for email:', email);
-      pendingVerifications.delete(email);
+      await db.query('DELETE FROM pending_verifications WHERE email = $1', [email]);
       return res.status(400).json({
         success: false,
         message: 'Verification code expired'
@@ -253,13 +255,13 @@ router.post('/verify-email-otp', async (req, res) => {
     console.log('Inserting new user into database:', {
       email,
       name: verificationData.name,
-      hasPhoneNumber: !!verificationData.phoneNumber
+      hasPhoneNumber: !!verificationData.phone_number
     });
 
     try {
       const result = await db.query(
         'INSERT INTO users (name, email, phone_number, password, avatar, verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, phone_number, avatar, rating',
-        [verificationData.name, email, verificationData.phoneNumber, hashedPassword, avatar, true]
+        [verificationData.name, email, verificationData.phone_number, hashedPassword, avatar, true]
       );
       
       const user = result.rows[0];
@@ -276,9 +278,8 @@ router.post('/verify-email-otp', async (req, res) => {
         { expiresIn: '30d' }
       );
 
-      // Clear verification data
-      console.log('Clearing verification data for email:', email);
-      pendingVerifications.delete(email);
+      // Clear verification data from the database
+      await db.query('DELETE FROM pending_verifications WHERE email = $1', [email]);
       
       res.status(201).json({
         success: true,

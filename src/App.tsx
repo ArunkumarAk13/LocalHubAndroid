@@ -3,11 +3,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { toast } from 'sonner';
 
 // Lazy load page components
 const Index = lazy(() => import('./pages/Index'));
@@ -23,15 +24,6 @@ const Notifications = lazy(() => import('./pages/Notifications'));
 const Chat = lazy(() => import('./pages/Chat'));
 
 const queryClient = new QueryClient();
-
-// Add back button handler
-const handleBackButton = () => {
-  if (Capacitor.isNativePlatform()) {
-    CapacitorApp.addListener('backButton', () => {
-      CapacitorApp.exitApp();
-    });
-  }
-};
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -59,26 +51,37 @@ const LoadingFallback = () => (
 // App routes with AuthProvider
 const AppRoutes = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
   const isChatPage = location.pathname.startsWith("/chat");
   const isIndexPage = location.pathname === "/";
   const hideNavbar = isAuthPage || isChatPage || !isIndexPage;
   
-  // Handle back button press
+  // Double-back-to-exit logic
+  const backPressRef = React.useRef<number>(0);
+
   React.useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      // Listen for the exitApp event from Android
-      const handleExitApp = () => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const onExitApp = (e: Event) => {
+      if (!isIndexPage) {
+        navigate('/', { replace: true });
+        return;
+      }
+      const now = Date.now();
+      if (backPressRef.current && now - backPressRef.current < 2000) {
         CapacitorApp.exitApp();
+      } else {
+        backPressRef.current = now;
+        toast("Press back again to exit");
+      }
       };
 
-      window.addEventListener('exitApp', handleExitApp);
-
+    window.addEventListener('exitApp', onExitApp);
       return () => {
-        window.removeEventListener('exitApp', handleExitApp);
+      window.removeEventListener('exitApp', onExitApp);
       };
-    }
-  }, []);
+  }, [isIndexPage, navigate]);
   
   return (
     <>
@@ -108,8 +111,6 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
-    handleBackButton();
-    
     // Clear notifications when app is opened
     if (Capacitor.isNativePlatform()) {
       // Call Android method to clear notifications
