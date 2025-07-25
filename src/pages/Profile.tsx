@@ -316,7 +316,7 @@ const Profile = () => {
               </Button>
             </div>
             <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
-            {user?.location && (
+            {user?.location ? (
               <div className="flex items-center gap-1 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
                 <a 
@@ -327,6 +327,19 @@ const Profile = () => {
                 >
                   {user.location}
                 </a>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                <MapPin className="h-4 w-4" />
+                <span className="text-sm font-medium">Add location for better experience</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditDialogOpen(true)}
+                  className="h-6 px-2 text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+                >
+                  Add Now
+                </Button>
               </div>
             )}
           </CardHeader>

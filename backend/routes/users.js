@@ -144,42 +144,27 @@ router.get('/subscribed-categories', auth, async (req, res, next) => {
 });
 
 // Get user notifications
-router.get('/notifications', auth, async (req, res, next) => {
+router.get('/notifications', auth, async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-        notifications: []
-      });
-    }
-
+    const userId = req.user.id;
+    
     const result = await db.query(`
-      SELECT 
-        n.id, 
-        n.title, 
-        n.description, 
-        n.created_at, 
-        n.is_read, 
-        n.post_id,
-        c.name as category
-      FROM notifications n
-      LEFT JOIN posts p ON n.post_id = p.id
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE n.user_id = $1
-      ORDER BY n.created_at DESC
-    `, [req.user.id]);
-
+      SELECT id, title, description, created_at, is_read, post_id
+      FROM notifications 
+      WHERE user_id = $1 
+      AND description NOT LIKE '%New message from%'
+      ORDER BY created_at DESC
+    `, [userId]);
+    
     res.json({
       success: true,
       notifications: result.rows
     });
   } catch (error) {
-    console.error("Error getting notifications:", error);
+    console.error('Error fetching notifications:', error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch notifications",
-      notifications: []
+      message: 'Failed to fetch notifications'
     });
   }
 });

@@ -73,7 +73,8 @@ const Navigation: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState<number>(0);
   
   const filteredCategories = CATEGORIES.filter(category =>
     category.toLowerCase().includes(categorySearch.toLowerCase())
@@ -88,8 +89,9 @@ const Navigation: React.FC = () => {
     try {
       const response = await usersAPI.getNotifications();
       if (response.success) {
+        // This only gets regular notifications (not chat notifications)
         setNotifications(response.notifications || []);
-        setUnreadCount(response.notifications.filter(n => !n.is_read).length);
+        setNotificationUnreadCount(response.notifications.filter(n => !n.is_read).length);
       } else {
         console.error("Failed to fetch notifications:", response.message);
         if (isInitialLoad) {
@@ -134,8 +136,8 @@ const Navigation: React.FC = () => {
 
   // Reset state when user changes
   useEffect(() => {
-    if (user?.id !== currentUserId) {
-      setCurrentUserId(user?.id || null);
+    if (user?.id?.toString() !== currentUserId) {
+      setCurrentUserId(user?.id?.toString() || null);
       setSubscribedCategories([]);
       setNotifications([]);
       setIsInitialLoad(true);
@@ -239,7 +241,7 @@ const Navigation: React.FC = () => {
 
   const unreadNotificationsCount = notifications.filter(notification => !notification.is_read).length;
   
-  // Fetch unread message count
+  // Fetch unread message count for chat notifications
   useEffect(() => {
     const fetchUnreadCount = async () => {
       if (!isAuthenticated) return;
@@ -252,7 +254,7 @@ const Navigation: React.FC = () => {
         });
         if (!response.ok) throw new Error('Failed to fetch unread count');
         const data = await response.json();
-        setUnreadCount(data.count);
+        setChatUnreadCount(data.count);
       } catch (error) {
         console.error('Error fetching unread count:', error);
       }
@@ -272,9 +274,9 @@ const Navigation: React.FC = () => {
       
       <Link to="/chat" className="nav-icon relative">
         <MessageCircle size={24} />
-        {unreadCount > 0 && (
+        {chatUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-            {unreadCount}
+            {chatUnreadCount}
           </span>
         )}
       </Link>
@@ -287,9 +289,9 @@ const Navigation: React.FC = () => {
       
       <Link to="/notifications" className="nav-icon relative">
         <Bell size={24} />
-        {unreadNotificationsCount > 0 && (
+        {notificationUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-            {unreadNotificationsCount}
+            {notificationUnreadCount}
           </span>
         )}
         {isInitialLoad && isAuthenticated && (

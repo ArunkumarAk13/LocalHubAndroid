@@ -37,7 +37,11 @@ const Notifications: React.FC = () => {
         await usersAPI.markAllNotificationsAsRead();
         const response = await usersAPI.getNotifications();
         if (response.success) {
-          setNotifications(response.notifications || []);
+          // Filter out chat notifications - only show regular notifications
+          const regularNotifications = (response.notifications || []).filter(
+            (notification: Notification) => !notification.description?.includes('New message from')
+          );
+          setNotifications(regularNotifications);
         } else {
           toast.error(response.message || 'Failed to load notifications');
         }

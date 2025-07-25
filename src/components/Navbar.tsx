@@ -154,8 +154,7 @@ const Navbar = () => {
       <div className="container flex h-14 items-center justify-between">
         <div className="flex">
           <Link to="/" className="flex items-center space-x-2">
-            <img src="/logo.jpg" alt="LocalHub Logo" className="h-8 w-auto object-contain" />
-            <span className="font-bold text-xl">Local Hub</span>
+            <span className="font-bold text-xl">LocalHub</span>
           </Link>
         </div>
         {isAuthenticated && (

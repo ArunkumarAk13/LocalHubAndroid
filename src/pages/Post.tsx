@@ -98,16 +98,12 @@ const Post = () => {
             navigate('/');
           }
         })
-        .catch(error => {
-          console.error('Error loading post:', error);
-          toast.error("Failed to load post");
-          navigate('/');
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+        .finally(() => setIsLoading(false));
+    } else if (user?.location) {
+      // Default location to user's profile location for new posts
+      setFormData(prev => ({ ...prev, location: user.location }));
     }
-  }, [postId, navigate]);
+  }, [postId, navigate, user?.location]);
 
   const filteredCategories = CATEGORIES.filter(category =>
     category.toLowerCase().includes(categorySearch.toLowerCase())

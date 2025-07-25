@@ -80,7 +80,7 @@ const Index: React.FC = () => {
         const response = await postsAPI.getAllPosts({
           category: selectedCategory || undefined,
           search: searchQuery || undefined,
-          userLocation: user?.location || undefined
+          userLocation: user?.location || undefined // Pass user location for sorting
         });
         
         if (response.success) {
