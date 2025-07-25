@@ -65,7 +65,7 @@ router.get('/', async (req, res, next) => {
         ORDER BY 
           CASE 
             WHEN p.location IS NULL THEN 1
-            WHEN p.location = $${queryParams.length + 1} THEN 0
+            WHEN LOWER(p.location) LIKE LOWER('%' || $${queryParams.length + 1} || '%') THEN 0
             ELSE 2
           END,
           p.created_at DESC
