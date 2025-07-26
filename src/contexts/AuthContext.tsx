@@ -15,7 +15,9 @@ export interface User {
   rating?: number;
   created_at?: string;
   firebaseUid?: string;
-  location?: string;
+  city?: string;
+  district?: string;
+  state?: string;
 }
 
 // Define the context type

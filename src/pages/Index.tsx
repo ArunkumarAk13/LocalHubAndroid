@@ -80,7 +80,9 @@ const Index: React.FC = () => {
         const response = await postsAPI.getAllPosts({
           category: selectedCategory || undefined,
           search: searchQuery || undefined,
-          userLocation: user?.location || undefined // Pass user location for sorting
+          userCity: user?.city || undefined,
+          userDistrict: user?.district || undefined,
+          userState: user?.state || undefined
         });
         
         if (response.success) {
@@ -104,7 +106,9 @@ const Index: React.FC = () => {
                 settings: post.posted_by.settings || { whatsappEnabled: false }
               },
               postedAt: new Date(post.created_at).toLocaleDateString(),
-              location: post.location || 'Unknown'
+              city: post.city || '',
+              district: post.district || '',
+              state: post.state || ''
             }));
           setPosts(filteredPosts);
         } else {
@@ -119,7 +123,7 @@ const Index: React.FC = () => {
     };
 
     loadPosts();
-  }, [selectedCategory, searchQuery, user?.id, user?.location]);
+  }, [selectedCategory, searchQuery, user?.id, user?.city, user?.district, user?.state]);
 
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;

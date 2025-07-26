@@ -31,7 +31,9 @@ const Profile = () => {
     name: user?.name || "",
     avatar: user?.avatar || "",
     phoneNumber: user?.phone_number || "",
-    location: user?.location || ""
+    city: user?.city || "",
+    district: user?.district || "",
+    state: user?.state || "",
   });
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,7 +59,9 @@ const Profile = () => {
               user.name = profileResponse.user.name;
               user.avatar = profileResponse.user.avatar;
               user.phone_number = profileResponse.user.phone_number;
-              user.location = profileResponse.user.location;
+              user.city = profileResponse.user.city;
+              user.district = profileResponse.user.district;
+              user.state = profileResponse.user.state;
               user.created_at = profileResponse.user.created_at;
               console.log('Updated user data:', user);
             }
@@ -98,7 +102,9 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('name', editForm.name);
       formData.append('phoneNumber', editForm.phoneNumber);
-      formData.append('location', editForm.location);
+      formData.append('city', editForm.city);
+      formData.append('district', editForm.district);
+      formData.append('state', editForm.state);
 
       // If a new file was selected, append it to formData
       const fileInput = fileInputRef.current;
@@ -136,14 +142,18 @@ const Profile = () => {
           name: result.user.name,
           avatar: result.user.avatar,
           phoneNumber: result.user.phone_number,
-          location: result.user.location
+          city: result.user.city,
+          district: result.user.district,
+          state: result.user.state
         });
         // Update the user context
         if (user) {
           user.name = result.user.name;
           user.avatar = result.user.avatar;
           user.phone_number = result.user.phone_number;
-          user.location = result.user.location;
+          user.city = result.user.city;
+          user.district = result.user.district;
+          user.state = result.user.state;
         }
       } else {
         throw new Error(result.message || "Failed to update profile");
@@ -225,7 +235,9 @@ const Profile = () => {
         name: user?.name || "",
         avatar: user?.avatar || "",
         phoneNumber: user?.phone_number || "",
-        location: user?.location || ""
+        city: user?.city || "",
+        district: user?.district || "",
+        state: user?.state || ""
       });
     }
   }, [isEditDialogOpen, user]);
@@ -316,16 +328,16 @@ const Profile = () => {
               </Button>
             </div>
             <p className="text-muted-foreground">{user?.phone_number || "No phone number"}</p>
-            {user?.location ? (
+            {user?.city && user?.district && user?.state ? (
               <div className="flex items-center gap-1 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
                 <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(user.location)}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${user.city}, ${user.district}, ${user.state}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 underline hover:text-blue-800"
                 >
-                  {user.location}
+                  {`${user.city}, ${user.district}, ${user.state}`}
                 </a>
               </div>
             ) : (
@@ -482,30 +494,37 @@ const Profile = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                    <MapPin size={18} />
-                  </div>
-                  <Input
-                    id="location"
-                    value={editForm.location}
-                    disabled
-                    placeholder="Click 'Get Current Location' to set your location"
-                    className="pl-10 bg-muted cursor-not-allowed"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={getCurrentLocation}
-                  className="whitespace-nowrap"
-                >
-                  Get Current Location
-                </Button>
-              </div>
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                value={editForm.city}
+                onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
+                placeholder="Enter your city"
+              />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="district">District</Label>
+              <Input
+                id="district"
+                value={editForm.district}
+                onChange={(e) => setEditForm(prev => ({ ...prev, district: e.target.value }))}
+                placeholder="Enter your district"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state">State</Label>
+              <Input
+                id="state"
+                value={editForm.state}
+                onChange={(e) => setEditForm(prev => ({ ...prev, state: e.target.value }))}
+                placeholder="Enter your state"
+              />
+            </div>
+            {(!editForm.city || !editForm.district || !editForm.state) && (
+              <div className="text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 mb-2">
+                Please add your city, district, and state for accurate location-based filtering.
+              </div>
+            )}
           </div>
           
           <DialogFooter>

@@ -71,7 +71,9 @@ const Post = () => {
     title: '',
     description: '',
     category: '',
-    location: '',
+    city: user?.city || '',
+    district: user?.district || '',
+    state: user?.state || '',
     images: [] as {file: File, preview: string, isExisting?: boolean, url?: string}[],
   });
 
@@ -86,7 +88,9 @@ const Post = () => {
               title: post.title,
               description: post.description,
               category: post.category,
-              location: post.location || '',
+              city: post.city || '',
+              district: post.district || '',
+              state: post.state || '',
               images: post.images.map((url: string) => ({
                 preview: url,
                 url: url,
@@ -99,11 +103,16 @@ const Post = () => {
           }
         })
         .finally(() => setIsLoading(false));
-    } else if (user?.location) {
-      // Default location to user's profile location for new posts
-      setFormData(prev => ({ ...prev, location: user.location }));
+    } else {
+      // Default to user's profile city/district/state for new posts
+      setFormData(prev => ({
+        ...prev,
+        city: user?.city || '',
+        district: user?.district || '',
+        state: user?.state || '',
+      }));
     }
-  }, [postId, navigate, user?.location]);
+  }, [postId, navigate, user?.city, user?.district, user?.state]);
 
   const filteredCategories = CATEGORIES.filter(category =>
     category.toLowerCase().includes(categorySearch.toLowerCase())
@@ -174,6 +183,12 @@ const Post = () => {
         return;
       }
 
+      if (!formData.city || !formData.district || !formData.state) {
+        toast.error("City, district, and state are required.");
+        setIsSubmitting(false);
+        return;
+      }
+
       // Create FormData object
       const postFormData = new FormData();
       
@@ -182,7 +197,9 @@ const Post = () => {
         title: formData.title,
         description: formData.description,
         category: formData.category,
-        location: formData.location,
+        city: formData.city,
+        district: formData.district,
+        state: formData.state,
         imagesCount: formData.images.length,
         platform: Capacitor.getPlatform()
       });
@@ -191,10 +208,9 @@ const Post = () => {
       postFormData.append('title', formData.title.trim());
       postFormData.append('description', formData.description.trim());
       postFormData.append('category', formData.category.trim());
-      
-      if (formData.location?.trim()) {
-        postFormData.append('location', formData.location.trim());
-      }
+      postFormData.append('city', formData.city.trim());
+      postFormData.append('district', formData.district.trim());
+      postFormData.append('state', formData.state.trim());
       
       // Add existing images that should be kept
       const existingImages = formData.images.filter(img => img.isExisting && img.url);
@@ -226,15 +242,21 @@ const Post = () => {
       const title = postFormData.get('title')?.toString();
       const description = postFormData.get('description')?.toString();
       const category = postFormData.get('category')?.toString();
+      const city = postFormData.get('city')?.toString();
+      const district = postFormData.get('district')?.toString();
+      const state = postFormData.get('state')?.toString();
 
       console.log('FormData validation:', {
         title,
         description,
         category,
+        city,
+        district,
+        state,
         hasImages: postFormData.getAll('images').length > 0
       });
 
-      if (!title || !description || !category) {
+      if (!title || !description || !category || !city || !district || !state) {
         throw new Error('Required fields are missing in FormData');
       }
       
@@ -377,17 +399,37 @@ const Post = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location" className="text-base font-medium">Location*</Label>
+              <Label htmlFor="city">City</Label>
               <Input
-                id="location"
-                name="location"
-                placeholder="Where are you located?"
-                value={formData.location}
-                onChange={handleInputChange}
-                required
-                className="w-full"
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                placeholder="Enter city"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="district">District</Label>
+              <Input
+                id="district"
+                value={formData.district}
+                onChange={(e) => setFormData(prev => ({ ...prev, district: e.target.value }))}
+                placeholder="Enter district"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="state">State</Label>
+              <Input
+                id="state"
+                value={formData.state}
+                onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                placeholder="Enter state"
+              />
+            </div>
+            {(formData.city && formData.district && formData.state) && (
+              <div className="text-amber-600 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 mb-2">
+                Please add city, district, and state for this post.
+              </div>
+            )}
 
             <div className="space-y-4">
               <div className="flex justify-between items-center">

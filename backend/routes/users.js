@@ -370,7 +370,7 @@ router.put('/notifications/read-all', auth, async (req, res, next) => {
 // Update user profile
 router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, next) => {
   try {
-    const { name, phoneNumber, location } = req.body;
+    const { name, phoneNumber, city, district, state } = req.body;
     
     if (!name) {
       return res.status(400).json({
@@ -378,6 +378,17 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
         message: 'Name is required'
       });
     }
+    if (!city || !district || !state) {
+      return res.status(400).json({
+        success: false,
+        message: 'City, district, and state are required.'
+      });
+    }
+
+    // Normalize city, district, state
+    const cityNorm = city.trim().toLowerCase();
+    const districtNorm = district.trim().toLowerCase();
+    const stateNorm = state.trim().toLowerCase();
 
     // Start a transaction
     await db.query('BEGIN');
@@ -394,8 +405,8 @@ router.put('/profile', auth, avatarUpload.single('avatar'), async (req, res, nex
 
       // Update user profile
       const result = await db.query(
-        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar), location = $4 WHERE id = $5 RETURNING id, name, email, avatar, phone_number, location',
-        [name, phoneNumber, avatarUrl, location, req.user.id]
+        'UPDATE users SET name = $1, phone_number = $2, avatar = COALESCE($3, avatar), city = $4, district = $5, state = $6 WHERE id = $7 RETURNING id, name, email, avatar, phone_number, city, district, state',
+        [name, phoneNumber, avatarUrl, cityNorm, districtNorm, stateNorm, req.user.id]
       );
 
       await db.query('COMMIT');

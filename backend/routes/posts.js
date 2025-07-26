@@ -10,7 +10,7 @@ const router = express.Router();
 // Get all posts with filters
 router.get('/', async (req, res, next) => {
   try {
-    const { category, search, limit = 20, offset = 0, userLocation } = req.query;
+    const { category, search, limit = 20, offset = 0, userCity, userDistrict, userState } = req.query;
     
     let query = `
       SELECT 
@@ -59,18 +59,19 @@ router.get('/', async (req, res, next) => {
       query += ` AND ${conditions.join(' AND ')}`;
     }
     
-    // Add location-based sorting if userLocation is provided
-    if (userLocation) {
+    // Add location-based sorting if userCity/userDistrict/userState is provided
+    if (userCity || userDistrict || userState) {
       query += `
         ORDER BY 
           CASE 
-            WHEN p.location IS NULL THEN 1
-            WHEN LOWER(p.location) LIKE LOWER('%' || $${queryParams.length + 1} || '%') THEN 0
-            ELSE 2
+            WHEN LOWER(TRIM(p.city)) = LOWER(TRIM($${queryParams.length + 1})) THEN 0
+            WHEN LOWER(TRIM(p.district)) = LOWER(TRIM($${queryParams.length + 2})) THEN 1
+            WHEN LOWER(TRIM(p.state)) = LOWER(TRIM($${queryParams.length + 3})) THEN 2
+            ELSE 3
           END,
           p.created_at DESC
       `;
-      queryParams.push(userLocation);
+      queryParams.push(userCity || '', userDistrict || '', userState || '');
     } else {
       query += ` ORDER BY p.created_at DESC`;
     }
@@ -197,14 +198,19 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
   const client = await db.query('BEGIN');
   
   try {
-    const { title, description, category, location } = req.body;
+    const { title, description, category, city, district, state } = req.body;
     
-    if (!title || !description || !category) {
+    if (!title || !description || !category || !city || !district || !state) {
       return res.status(400).json({
         success: false,
-        message: 'Title, description, and category are required'
+        message: 'Title, description, category, city, district, and state are required'
       });
     }
+    
+    // Normalize city, district, state
+    const cityNorm = city.trim().toLowerCase();
+    const districtNorm = district.trim().toLowerCase();
+    const stateNorm = state.trim().toLowerCase();
     
     // Get category ID
     const categoryResult = await db.query('SELECT id FROM categories WHERE name = $1', [category]);
@@ -224,8 +230,8 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
     
     // Insert post
     const postResult = await db.query(
-      'INSERT INTO posts (title, description, category_id, user_id, location) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [title, description, categoryId, req.user.id, location]
+      'INSERT INTO posts (title, description, category_id, user_id, city, district, state) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      [title, description, categoryId, req.user.id, cityNorm, districtNorm, stateNorm]
     );
     
     const postId = postResult.rows[0].id;
@@ -277,7 +283,9 @@ router.post('/', auth, upload.array('images', 5), async (req, res, next) => {
         title,
         description,
         category,
-        location,
+        city: cityNorm,
+        district: districtNorm,
+        state: stateNorm,
         images: imageUrls,
         posted_by: {
           id: req.user.id,
