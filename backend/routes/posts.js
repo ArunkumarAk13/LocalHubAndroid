@@ -14,7 +14,7 @@ router.get('/', async (req, res, next) => {
     
     let query = `
       SELECT 
-        p.id, p.title, p.description, p.location, p.created_at, p.purchased,
+        p.id, p.title, p.description, p.created_at, p.purchased,
         c.name AS category,
         json_build_object(
           'id', u.id,
@@ -101,7 +101,7 @@ router.get('/user/:userId', async (req, res, next) => {
     
     const query = `
       SELECT 
-        p.id, p.title, p.description, p.location, p.created_at, p.purchased,
+        p.id, p.title, p.description, p.created_at, p.purchased,
         c.name AS category,
         json_build_object(
           'id', u.id,
@@ -150,7 +150,7 @@ router.get('/:id', async (req, res, next) => {
     
     const query = `
       SELECT 
-        p.id, p.title, p.description, p.location, p.created_at,
+        p.id, p.title, p.description, p.created_at,
         c.name AS category,
         json_build_object(
           'id', u.id,
@@ -428,8 +428,8 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
     
     // Update post
     await db.query(
-      'UPDATE posts SET title = $1, description = $2, category_id = $3, location = $4 WHERE id = $5',
-      [title, description, categoryId, location, id]
+      'UPDATE posts SET title = $1, description = $2, category_id = $3 WHERE id = $4',
+      [title, description, categoryId, id]
     );
     
     // Handle images
@@ -467,7 +467,7 @@ router.put('/:id', auth, upload.array('images', 5), async (req, res, next) => {
     // Get updated post with all details
     const updatedPost = await db.query(`
       SELECT 
-        p.id, p.title, p.description, p.location, p.created_at, p.purchased,
+        p.id, p.title, p.description, p.created_at, p.purchased,
         c.name AS category,
         json_build_object(
           'id', u.id,
