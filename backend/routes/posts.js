@@ -86,6 +86,9 @@ router.get('/', async (req, res, next) => {
       posts: result.rows
     });
   } catch (error) {
+    console.error('Error in GET /api/posts:', error);
+    console.error('Query:', query);
+    console.error('Query Params:', queryParams);
     next(error);
   }
 });
