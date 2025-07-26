@@ -115,7 +115,12 @@ const Index: React.FC = () => {
           toast("Failed to load posts");
         }
       } catch (error) {
-        console.error("Error loading posts:", error);
+        // Improved error logging for debugging
+        if (typeof error === 'object') {
+          console.error("Error loading posts:", error, JSON.stringify(error), error?.message, error?.response);
+        } else {
+          console.error("Error loading posts:", error);
+        }
         toast("Error loading posts. Please try again.");
       } finally {
         setLoading(false);
